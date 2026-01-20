@@ -11,7 +11,7 @@ var data = {
         "listeners": [
             {
                 "timeout": 150,
-                "onTimeout": "ambxst brightness 10 -s",
+                "onTimeout": "ambxst brightness -s && ambxst brightness 10",
                 "onResume": "ambxst brightness -r"
             },
             {
