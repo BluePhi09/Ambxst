@@ -93,7 +93,7 @@ Item {
 
     FileView {
         id: wallpaperConfig
-        path: Quickshell.dataPath("wallpapers.json")
+        path: Quickshell.cachePath("wallpapers.json")
 
         JsonAdapter {
             property string currentWall: ""
@@ -1106,6 +1106,7 @@ Item {
                     Item {
                         id: variantSelectorPane
                         visible: root.currentSection === "colors"
+                        property string settingsSection: "colors"
                         Layout.fillWidth: true
                         Layout.preferredHeight: variantSelectorContent.implicitHeight
 
@@ -1467,6 +1468,7 @@ Item {
                     // Editor section
                     Item {
                         visible: root.currentSection === "colors"
+                        property string settingsSection: "colors"
                         Layout.fillWidth: true
                         Layout.preferredHeight: editorContent.implicitHeight
 

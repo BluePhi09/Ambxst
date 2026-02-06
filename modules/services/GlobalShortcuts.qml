@@ -1,3 +1,6 @@
+pragma Singleton
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Quickshell.Hyprland._GlobalShortcuts
 import qs.modules.globals
@@ -6,16 +9,14 @@ import qs.config
 
 import Quickshell.Io
 
-Item {
+QtObject {
     id: root
 
     readonly property string appId: "ambxst"
     readonly property string ipcPipe: "/tmp/ambxst_ipc.pipe"
 
     // High-performance Pipe Listener (Daemon mode)
-    // Creates a named pipe and listens for commands continuously
-    Process {
-        id: pipeListener
+    property Process pipeListener: Process {
         command: ["bash", "-c", "rm -f " + root.ipcPipe + "; mkfifo " + root.ipcPipe + "; tail -f " + root.ipcPipe]
         running: true
         
@@ -32,22 +33,28 @@ Item {
     function run(command) {
         console.log("IPC run command received:", command);
         switch (command) {
+            // Launcher (Standalone Notch Module)
+            case "launcher": toggleLauncher(); break;
+            case "clipboard": toggleLauncherWithPrefix(1, Config.prefix.clipboard + " "); break;
+            case "emoji": toggleLauncherWithPrefix(2, Config.prefix.emoji + " "); break;
+            case "tmux": toggleLauncherWithPrefix(3, Config.prefix.tmux + " "); break;
+            case "notes": toggleLauncherWithPrefix(4, Config.prefix.notes + " "); break;
+
             // Dashboard
+            case "dashboard": toggleDashboardTab(0); break;
+            case "wallpapers": toggleDashboardTab(1); break;
+            case "assistant": toggleDashboardTab(3); break;
             case "dashboard-widgets": toggleDashboardTab(0); break;
             case "dashboard-wallpapers": toggleDashboardTab(1); break;
             case "dashboard-kanban": toggleDashboardTab(2); break;
             case "dashboard-assistant": toggleDashboardTab(3); break;
-            case "dashboard-controls": toggleDashboardTab(4); break;
-            case "dashboard-clipboard": toggleDashboardWithPrefix(Config.prefix.clipboard + " "); break;
-            case "dashboard-emoji": toggleDashboardWithPrefix(Config.prefix.emoji + " "); break;
-            case "dashboard-tmux": toggleDashboardWithPrefix(Config.prefix.tmux + " "); break;
-            case "dashboard-notes": toggleDashboardWithPrefix(Config.prefix.notes + " "); break;
-            
+            case "dashboard-controls": toggleSettings(); break;
+
             // System
             case "overview": toggleSimpleModule("overview"); break;
             case "powermenu": toggleSimpleModule("powermenu"); break;
             case "tools": toggleSimpleModule("tools"); break;
-            case "config": GlobalStates.settingsVisible = !GlobalStates.settingsVisible; break;
+            case "config": toggleSettings(); break;
             case "screenshot": GlobalStates.screenshotToolVisible = true; break;
             case "screenrecord": GlobalStates.screenRecordToolVisible = true; break;
             case "lens": 
@@ -69,11 +76,18 @@ Item {
         }
     }
 
-    IpcHandler {
+    property IpcHandler ipcHandler: IpcHandler {
         target: "ambxst"
 
         function run(command: string) {
             root.run(command);
+        }
+    }
+
+    function toggleSettings() {
+        GlobalStates.settingsWindowVisible = !GlobalStates.settingsWindowVisible;
+        if (GlobalStates.settingsWindowVisible) {
+            Visibilities.setActiveModule("");
         }
     }
 
@@ -82,6 +96,39 @@ Item {
             Visibilities.setActiveModule("");
         } else {
             Visibilities.setActiveModule(moduleName);
+        }
+    }
+
+    function toggleLauncher() {
+        const isActive = Visibilities.currentActiveModule === "launcher";
+        if (isActive && GlobalStates.widgetsTabCurrentIndex === 0 && GlobalStates.launcherSearchText === "") {
+            Visibilities.setActiveModule("");
+        } else {
+            GlobalStates.widgetsTabCurrentIndex = 0;
+            GlobalStates.launcherSearchText = "";
+            GlobalStates.launcherSelectedIndex = -1;
+            if (!isActive) {
+                Visibilities.setActiveModule("launcher");
+            }
+        }
+    }
+
+    function toggleLauncherWithPrefix(tabIndex, prefix) {
+        const isActive = Visibilities.currentActiveModule === "launcher";
+        const currentTab = GlobalStates.widgetsTabCurrentIndex;
+        const currentText = GlobalStates.launcherSearchText;
+
+        if (isActive && currentTab === tabIndex && (currentText === prefix || currentText === "")) {
+            Visibilities.setActiveModule("");
+            GlobalStates.clearLauncherState();
+            return;
+        }
+
+        GlobalStates.widgetsTabCurrentIndex = tabIndex;
+        GlobalStates.launcherSearchText = prefix;
+        
+        if (!isActive) {
+            Visibilities.setActiveModule("launcher");
         }
     }
 
@@ -121,25 +168,20 @@ Item {
     function toggleDashboardWithPrefix(prefix) {
         const isActive = Visibilities.currentActiveModule === "dashboard";
         
-        // Check if dashboard is already open with this prefix
         if (isActive && GlobalStates.dashboardCurrentTab === 0 && GlobalStates.launcherSearchText === prefix) {
-            // Toggle off - close dashboard
             Visibilities.setActiveModule("");
             GlobalStates.clearLauncherState();
             return;
         }
 
-        // Always go to widgets tab first
         GlobalStates.dashboardCurrentTab = 0;
         
         if (!isActive) {
-            // Open dashboard first, then set prefix after a brief delay
             Visibilities.setActiveModule("dashboard");
             Qt.callLater(() => {
                 GlobalStates.launcherSearchText = prefix;
             });
         } else {
-            // Dashboard already open, just set the prefix
             GlobalStates.launcherSearchText = prefix;
         }
     }
@@ -157,152 +199,135 @@ Item {
         player.position = clamped;
     }
 
-    GlobalShortcut {
+    property GlobalShortcut shortcutOverview: GlobalShortcut {
         appid: root.appId
         name: "overview"
         description: "Toggle window overview"
-
         onPressed: toggleSimpleModule("overview")
     }
 
-    GlobalShortcut {
+    property GlobalShortcut shortcutPowermenu: GlobalShortcut {
         appid: root.appId
         name: "powermenu"
         description: "Toggle power menu"
-
         onPressed: toggleSimpleModule("powermenu")
     }
 
-    GlobalShortcut {
+    property GlobalShortcut shortcutTools: GlobalShortcut {
         appid: root.appId
         name: "tools"
         description: "Toggle tools menu"
-
         onPressed: toggleSimpleModule("tools")
     }
 
-    GlobalShortcut {
+    property GlobalShortcut shortcutScreenshot: GlobalShortcut {
         appid: root.appId
         name: "screenshot"
         description: "Open screenshot tool"
-
         onPressed: GlobalStates.screenshotToolVisible = true
     }
 
-    GlobalShortcut {
+    property GlobalShortcut shortcutScreenrecord: GlobalShortcut {
         appid: root.appId
         name: "screenrecord"
         description: "Open screen record tool"
-
         onPressed: GlobalStates.screenRecordToolVisible = true
     }
 
-    GlobalShortcut {
+    property GlobalShortcut shortcutLens: GlobalShortcut {
         appid: root.appId
         name: "lens"
         description: "Open Google Lens (screenshot)"
-
         onPressed: {
             Screenshot.captureMode = "lens";
             GlobalStates.screenshotToolVisible = true;
         }
     }
 
-    // Dashboard tab shortcuts
-    GlobalShortcut {
+    // Launcher standalone shortcuts
+    property GlobalShortcut shortcutLauncher: GlobalShortcut {
         appid: root.appId
-        name: "dashboard-widgets"
-        description: "Open dashboard widgets tab (includes app launcher)"
+        name: "launcher"
+        description: "Open standalone launcher"
+        onPressed: toggleLauncher()
+    }
 
+    property GlobalShortcut shortcutClipboard: GlobalShortcut {
+        appid: root.appId
+        name: "clipboard"
+        description: "Open launcher clipboard"
+        onPressed: toggleLauncherWithPrefix(1, Config.prefix.clipboard + " ")
+    }
+
+    property GlobalShortcut shortcutEmoji: GlobalShortcut {
+        appid: root.appId
+        name: "emoji"
+        description: "Open launcher emoji picker"
+        onPressed: toggleLauncherWithPrefix(2, Config.prefix.emoji + " ")
+    }
+
+    property GlobalShortcut shortcutTmux: GlobalShortcut {
+        appid: root.appId
+        name: "tmux"
+        description: "Open launcher tmux sessions"
+        onPressed: toggleLauncherWithPrefix(3, Config.prefix.tmux + " ")
+    }
+
+    property GlobalShortcut shortcutNotes: GlobalShortcut {
+        appid: root.appId
+        name: "notes"
+        description: "Open launcher notes"
+        onPressed: toggleLauncherWithPrefix(4, Config.prefix.notes + " ")
+    }
+
+    // Dashboard shortcuts
+    property GlobalShortcut shortcutDashboard: GlobalShortcut {
+        appid: root.appId
+        name: "dashboard"
+        description: "Open dashboard widgets tab"
         onPressed: toggleDashboardTab(0)
     }
 
-    GlobalShortcut {
+    property GlobalShortcut shortcutWallpapers: GlobalShortcut {
         appid: root.appId
-        name: "dashboard-clipboard"
-        description: "Open dashboard clipboard (via prefix)"
-
-        onPressed: toggleDashboardWithPrefix(Config.prefix.clipboard + " ")
-    }
-
-    GlobalShortcut {
-        appid: root.appId
-        name: "dashboard-emoji"
-        description: "Open dashboard emoji picker (via prefix)"
-
-        onPressed: toggleDashboardWithPrefix(Config.prefix.emoji + " ")
-    }
-
-    GlobalShortcut {
-        appid: root.appId
-        name: "dashboard-tmux"
-        description: "Open dashboard tmux sessions (via prefix)"
-
-        onPressed: toggleDashboardWithPrefix(Config.prefix.tmux + " ")
-    }
-
-    GlobalShortcut {
-        appid: root.appId
-        name: "dashboard-kanban"
-        description: "Open dashboard kanban tab"
-
-        onPressed: toggleDashboardTab(2)
-    }
-
-    GlobalShortcut {
-        appid: root.appId
-        name: "dashboard-wallpapers"
+        name: "wallpapers"
         description: "Open dashboard wallpapers tab"
-
         onPressed: toggleDashboardTab(1)
     }
 
-    GlobalShortcut {
+    property GlobalShortcut shortcutAssistant: GlobalShortcut {
         appid: root.appId
-        name: "dashboard-notes"
-        description: "Open dashboard notes (via prefix)"
-
-        onPressed: toggleDashboardWithPrefix(Config.prefix.notes + " ")
-    }
-
-    GlobalShortcut {
-        appid: root.appId
-        name: "dashboard-assistant"
+        name: "assistant"
         description: "Open dashboard assistant tab"
-
         onPressed: toggleDashboardTab(3)
     }
 
-    GlobalShortcut {
+    property GlobalShortcut shortcutDashboardControls: GlobalShortcut {
         appid: root.appId
         name: "dashboard-controls"
         description: "Open dashboard controls tab"
-
-        onPressed: toggleDashboardTab(4)
+        onPressed: toggleSettings()
     }
 
     // Media player shortcuts
-    GlobalShortcut {
+    property GlobalShortcut shortcutMediaSeekBackward: GlobalShortcut {
         appid: root.appId
         name: "media-seek-backward"
         description: "Seek backward in media player"
-
         onPressed: seekActivePlayer(-mediaSeekStepMs)
     }
 
-    GlobalShortcut {
+    property GlobalShortcut shortcutMediaSeekForward: GlobalShortcut {
         appid: root.appId
         name: "media-seek-forward"
         description: "Seek forward in media player"
-
         onPressed: seekActivePlayer(mediaSeekStepMs)
     }
 
-    GlobalShortcut {
+    property GlobalShortcut shortcutMediaPlayPause: GlobalShortcut {
         appid: root.appId
         name: "media-play-pause"
         description: "Toggle play/pause in media player"
-
         onPressed: {
             if (MprisController.canTogglePlaying) {
                 MprisController.togglePlaying();

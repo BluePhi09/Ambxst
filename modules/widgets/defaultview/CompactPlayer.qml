@@ -11,13 +11,25 @@ import qs.config
 Item {
     id: compactPlayer
 
-    required property MprisPlayer player
+    required property var player
     required property bool notchHovered
+
+    onPlayerChanged: {
+        if (!player) {
+            positionSlider.value = 0;
+        }
+    }
 
     property bool isPlaying: player?.playbackState === MprisPlaybackState.Playing
     property real position: player?.position ?? 0.0
     property real length: player?.length ?? 1.0
     property bool hasArtwork: (player?.trackArtUrl ?? "") !== ""
+    property string wallpaperPath: {
+        if (!GlobalStates.wallpaperManager) return "";
+        let path = GlobalStates.wallpaperManager.currentWallpaper;
+        let frame = GlobalStates.wallpaperManager.getLockscreenFramePath(path);
+        return frame ? "file://" + frame : "";
+    }
 
     function getPlayerIcon(player) {
         if (!player)
@@ -96,7 +108,7 @@ Item {
             Image {
                 id: backgroundArt
                 anchors.fill: parent
-                source: compactPlayer.player?.trackArtUrl ?? ""
+                source: (compactPlayer.player?.trackArtUrl ?? "") !== "" ? compactPlayer.player.trackArtUrl : compactPlayer.wallpaperPath
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 visible: false
@@ -109,7 +121,7 @@ Item {
                 blurMax: 32
                 blur: 0.75
                 autoPaddingEnabled: false
-                opacity: hasArtwork ? 1.0 : 0.0
+                opacity: (hasArtwork || wallpaperPath !== "") ? 1.0 : 0.0
                 Behavior on opacity {
                     enabled: Config.animDuration > 0
                     NumberAnimation {
@@ -122,7 +134,7 @@ Item {
             StyledRect {
                 anchors.fill: parent
                 variant: "internalbg"
-                opacity: hasArtwork ? 0.5 : 0.0
+                opacity: (hasArtwork || wallpaperPath !== "") ? 0.5 : 0.0
                 radius: Styling.radius(-4)
                 Behavior on opacity {
                     enabled: Config.animDuration > 0
@@ -154,7 +166,6 @@ Item {
                 id: artworkContainer
                 Layout.preferredWidth: 24
                 Layout.preferredHeight: 24
-                visible: compactPlayer.player !== null
                 ClippingRectangle {
                     anchors.fill: parent
                     radius: compactPlayer.isPlaying ? Styling.radius(-8) : Styling.radius(-4)
@@ -162,7 +173,7 @@ Item {
                     Image {
                         id: artworkImage
                         anchors.fill: parent
-                        source: compactPlayer.player?.trackArtUrl ?? ""
+                        source: (compactPlayer.player?.trackArtUrl ?? "") !== "" ? compactPlayer.player.trackArtUrl : compactPlayer.wallpaperPath
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
                         visible: false
@@ -172,7 +183,7 @@ Item {
                         source: artworkImage
                         blurMax: 32
                         blur: 0.75
-                        opacity: hasArtwork ? 1.0 : 0.0 // Simplificado
+                        opacity: (hasArtwork || wallpaperPath !== "") ? 1.0 : 0.0 // Simplificado
                         Behavior on opacity {
                             enabled: Config.animDuration > 0
                             NumberAnimation {
@@ -185,14 +196,14 @@ Item {
                     StyledRect {
                         anchors.fill: parent
                         variant: "internalbg"
-                        opacity: hasArtwork ? 0.5 : 0.0
+                        opacity: (hasArtwork || wallpaperPath !== "") ? 0.5 : 0.0
                     }
                     Text {
                         id: playPauseBtn
                         anchors.centerIn: parent
                         text: compactPlayer.isPlaying ? Icons.pause : Icons.play
                         textFormat: Text.RichText
-                        color: playPauseHover.hovered ? (hasArtwork ? Styling.srItem("overprimary") : Styling.srItem("overprimary")) : (hasArtwork ? Colors.overBackground : Colors.overBackground)
+                        color: playPauseHover.hovered ? ((hasArtwork || wallpaperPath !== "") ? Styling.srItem("overprimary") : Styling.srItem("overprimary")) : ((hasArtwork || wallpaperPath !== "") ? Colors.overBackground : Colors.overBackground)
                         font.pixelSize: 16
                         font.family: Icons.font
                         opacity: compactPlayer.player?.canPause ?? false ? 1.0 : 0.3
@@ -241,7 +252,7 @@ Item {
                 id: previousBtn
                 text: Icons.previous
                 textFormat: Text.RichText
-                color: previousHover.hovered ? (hasArtwork ? Styling.srItem("overprimary") : Styling.srItem("overprimary")) : Colors.overBackground
+                color: previousHover.hovered ? ((hasArtwork || wallpaperPath !== "") ? Styling.srItem("overprimary") : Styling.srItem("overprimary")) : Colors.overBackground
                 font.pixelSize: 16
                 font.family: Icons.font
                 opacity: compactPlayer.player?.canGoPrevious ?? false ? 1.0 : 0.3
@@ -299,21 +310,19 @@ Item {
                 Layout.preferredHeight: 4
                 Layout.leftMargin: compactPlayer.notchHovered ? 0 : 8
                 Layout.rightMargin: compactPlayer.notchHovered ? 0 : 8
-                visible: compactPlayer.player !== null
                 player: compactPlayer.player
                 // Le pasamos 'hasArtwork' para que el slider también pueda usar los colores dinámicos
-                hasArtwork: compactPlayer.hasArtwork
+                hasArtwork: compactPlayer.hasArtwork || compactPlayer.wallpaperPath !== ""
             }
 
             Text {
                 id: nextBtn
                 text: Icons.next
                 textFormat: Text.RichText
-                color: nextHover.hovered ? (hasArtwork ? Styling.srItem("overprimary") : Styling.srItem("overprimary")) : Colors.overBackground
+                color: nextHover.hovered ? ((hasArtwork || wallpaperPath !== "") ? Styling.srItem("overprimary") : Styling.srItem("overprimary")) : Colors.overBackground
                 font.pixelSize: 16
                 font.family: Icons.font
                 opacity: compactPlayer.player?.canGoNext ?? false ? 1.0 : 0.3
-                visible: compactPlayer.player !== null && opacity > 0
                 clip: true
                 scale: 1.0
                 readonly property real naturalWidth: implicitWidth
@@ -376,7 +385,8 @@ Item {
                     }
                 }
                 textFormat: Text.RichText
-                color: modeHover.hovered ? (hasArtwork ? Styling.srItem("overprimary") : Styling.srItem("overprimary")) : Colors.overBackground
+                color: modeBtn.modeHover.hovered ? ((hasArtwork || wallpaperPath !== "") ? Styling.srItem("overprimary") : Styling.srItem("overprimary")) : Colors.overBackground
+                property alias modeHover: modeHover
                 font.pixelSize: 16
                 font.family: Icons.font
                 opacity: {
@@ -386,7 +396,6 @@ Item {
                         return 0.3;
                     return 1.0;
                 }
-                visible: compactPlayer.player !== null
                 clip: true
                 scale: 1.0
                 readonly property real naturalWidth: implicitWidth
@@ -447,11 +456,10 @@ Item {
                 id: playerIcon
                 text: compactPlayer.getPlayerIcon(compactPlayer.player)
                 textFormat: Text.RichText
-                color: playerIconHover.hovered ? (hasArtwork ? Styling.srItem("overprimary") : Styling.srItem("overprimary")) : Colors.overBackground
+                color: playerIconHover.hovered ? ((hasArtwork || wallpaperPath !== "") ? Styling.srItem("overprimary") : Styling.srItem("overprimary")) : Colors.overBackground
                 font.pixelSize: 20
                 font.family: Icons.font
                 verticalAlignment: Text.AlignVCenter
-                visible: compactPlayer.player !== null
                 Layout.preferredWidth: compactPlayer.player !== null ? implicitWidth : 0
                 Layout.rightMargin: compactPlayer.player !== null ? 4 : 0
                 Behavior on Layout.preferredWidth {

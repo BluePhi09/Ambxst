@@ -18,17 +18,43 @@ Item {
 
     // State
     readonly property bool hasActiveNotifications: Notifications.popupList.length > 0
-    readonly property MprisPlayer activePlayer: MprisController.activePlayer
+    readonly property var activePlayer: MprisController.activePlayer
     property bool notchHovered: false
+    property bool parentHoverActive: false
     property bool isNavigating: false
+
+    // Position detection
+    readonly property string notchPosition: Config.notchPosition ?? "top"
+    readonly property bool isBottom: notchPosition === "bottom"
 
     HoverHandler {
         id: contentHoverHandler
     }
 
-    readonly property bool expandedState: contentHoverHandler.hovered || notchHovered || isNavigating || Visibilities.playerMenuOpen
+    readonly property bool expandedState: contentHoverHandler.hovered || notchHovered || parentHoverActive || isNavigating || Visibilities.playerMenuOpen
 
-    property real mainRowMargin: (Config.notchTheme === "island" && hasActiveNotifications) ? 64 : 16
+    property bool mediaHoverExpanded: false
+
+    Timer {
+        id: mediaHoverTimer
+        interval: 1000
+        running: expandedState && activePlayer !== null && !hasActiveNotifications && !mediaHoverExpanded
+        onTriggered: mediaHoverExpanded = true
+    }
+
+    onExpandedStateChanged: {
+        if (!expandedState) {
+            mediaHoverExpanded = false;
+        }
+    }
+
+    onActivePlayerChanged: {
+        if (!activePlayer) {
+            mediaHoverExpanded = false;
+        }
+    }
+
+    property real mainRowMargin: 16
 
     Behavior on mainRowMargin {
         enabled: Config.animDuration > 0
@@ -45,7 +71,7 @@ Item {
     readonly property real notificationMinWidth: expandedState ? 420 : 320
     readonly property real notificationContainerHeight: notificationView.implicitHeight + notificationPaddingTop + notificationPaddingBottom
 
-    implicitWidth: Math.round(hasActiveNotifications ? Math.max(notificationMinWidth + (notificationPadding * 2), mainRowContentWidth) : mainRowContentWidth)
+    implicitWidth: Math.round((hasActiveNotifications || mediaHoverExpanded) ? Math.max(notificationMinWidth + (notificationPadding * 2), mainRowContentWidth) : mainRowContentWidth)
 
     implicitHeight: hasActiveNotifications ? mainRowHeight + notificationContainerHeight : mainRowHeight
 
@@ -83,13 +109,36 @@ Item {
         anchors.fill: parent
         spacing: 0
 
+        // If bottom position, we populate content bottom-up.
+        // But Column fills top-down. 
+        // We can move the mainRow to the bottom of this Column or use a different layout strategy.
+        // Easiest is to reverse the visual order by using move property or just conditionally rendering order? 
+        // QML items can be reordered visually? No.
+        // We can use States or just conditional anchoring if not using Column.
+        // But this uses Column.
+
+        // Reorder children based on position:
+        // Top: mainRow then notificationContainer
+        // Bottom: notificationContainer then mainRow
+        
+        // Since we cannot dynamically reorder children in a Column easily without Repeater/Loader tricks,
+        // we can use Item + Anchors instead of Column for full control.
+        
+    }
+
+    Item {
+        anchors.fill: parent
+
         // mainRow container
         Row {
             id: mainRow
             anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: isBottom ? undefined : parent.top
+            anchors.bottom: isBottom ? parent.bottom : undefined
             width: parent.width - mainRowMargin
             height: mainRowHeight
             spacing: 4
+            z: 2 // Ensure it stays above notifications if overlap occurs (though they shouldn't)
 
             UserInfo {
                 id: userInfo
@@ -128,10 +177,17 @@ Item {
             width: parent.width
             height: hasActiveNotifications ? notificationContainerHeight : 0
             visible: hasActiveNotifications
-
+            
+            // Position relative to mainRow
+            anchors.top: isBottom ? undefined : mainRow.bottom
+            anchors.bottom: isBottom ? mainRow.top : undefined
+            
             NotchNotificationView {
                 id: notificationView
                 anchors.fill: parent
+                // Invert padding based on position? Or keep as is?
+                // If bottom, "top" margin is visually the one close to mainRow?
+                // Let's keep padding consistent for now, but ensure proper spacing.
                 anchors.topMargin: notificationPaddingTop
                 anchors.leftMargin: notificationPadding
                 anchors.rightMargin: notificationPadding

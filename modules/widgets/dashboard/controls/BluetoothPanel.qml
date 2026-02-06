@@ -20,8 +20,16 @@ Item {
     Component.onCompleted: {
         // Only refresh device list, don't start scanning automatically
         if (BluetoothService.enabled) {
-            BluetoothService.updateDevices();
+            // Defer update to avoid blocking UI initialization
+            initialUpdateTimer.start();
         }
+    }
+
+    Timer {
+        id: initialUpdateTimer
+        interval: 300
+        repeat: false
+        onTriggered: BluetoothService.updateDevices()
     }
 
     Component.onDestruction: {
@@ -34,6 +42,8 @@ Item {
         anchors.fill: parent
         clip: true
         spacing: 4
+        cacheBuffer: 1000
+        reuseItems: true
 
         model: BluetoothService.friendlyDeviceList
 
@@ -61,7 +71,7 @@ Item {
                         icon: Icons.sync,
                         tooltip: "Scan for devices",
                         enabled: BluetoothService.enabled,
-                        loading: BluetoothService.discovering,
+                        loading: BluetoothService.discovering || BluetoothService.isUpdating,
                         onClicked: function () {
                             BluetoothService.startDiscovery();
                         }

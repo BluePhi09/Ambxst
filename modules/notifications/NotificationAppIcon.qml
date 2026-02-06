@@ -10,6 +10,7 @@ import qs.config
 ClippingRectangle {
     id: root
     property var appIcon: ""
+    property string appName: ""
     property var summary: ""
     property var urgency: NotificationUrgency.Normal
     property var image: ""
@@ -32,11 +33,15 @@ ClippingRectangle {
         border.width: root.urgency == NotificationUrgency.Critical ? 2 : 0
         border.color: root.urgency == NotificationUrgency.Critical ? Colors.criticalRed : "transparent"
         radius: root.radius
-        visible: root.image == "" && root.appIcon == ""
+        visible: (root.image == "" && root.appIcon == "") || (appIconLoader.active && appIconLoader.item && appIconLoader.item.status === Image.Error)
 
         Text {
             anchors.centerIn: parent
-            text: root.urgency == NotificationUrgency.Critical ? Icons.alert : Icons.bell
+            text: {
+                if (root.urgency == NotificationUrgency.Critical) return Icons.alert;
+                if (root.appName === "Pomodoro") return Icons.timer;
+                return Icons.bell;
+            }
             font.family: Icons.font
             font.pixelSize: root.size * 0.5
             color: root.urgency == NotificationUrgency.Critical ? Colors.criticalText : Styling.srItem("overprimary")
@@ -64,6 +69,7 @@ ClippingRectangle {
         id: appIconLoader
         active: root.image == "" && root.appIcon != ""
         anchors.fill: parent
+        visible: item && item.status !== Image.Error
         sourceComponent: Image {
             id: appIconImage
             anchors.fill: parent

@@ -6,12 +6,26 @@ import qs.config
 
 FileView {
     id: colors
-    path: Quickshell.dataPath("colors.json")
+    path: Quickshell.cachePath("colors.json")
     preload: true
     watchChanges: true
     onFileChanged: {
-        reload()
-        generationTimer.restart()
+        reload();
+        generationTimer.restart();
+    }
+
+    property Connections oledWatcher: Connections {
+        target: Config
+        function onOledModeChanged() {
+            generationTimer.restart();
+        }
+    }
+
+    property Connections themeWatcher: Connections {
+        target: Config.loader
+        function onFileChanged() {
+            generationTimer.restart();
+        }
     }
 
     property QtCtGenerator qtCtGenerator: QtCtGenerator {
@@ -26,14 +40,29 @@ FileView {
         id: pywalGenerator
     }
 
+    property KittyGenerator kittyGenerator: KittyGenerator {
+        id: kittyGenerator
+    }
+
+    property NvChadGenerator nvChadGenerator: NvChadGenerator {
+        id: nvChadGenerator
+    }
+
+    property DiscordGenerator discordGenerator: DiscordGenerator {
+        id: discordGenerator
+    }
+
     property Timer generationTimer: Timer {
         id: generationTimer
         interval: 100
         repeat: false
         onTriggered: {
-            qtCtGenerator.generate(colors)
-            gtkGenerator.generate(colors)
-            pywalGenerator.generate(colors)
+            qtCtGenerator.generate(colors);
+            gtkGenerator.generate(colors);
+            pywalGenerator.generate(colors);
+            kittyGenerator.generate(colors);
+            nvChadGenerator.generate(colors);
+            discordGenerator.generate(colors);
         }
     }
 
@@ -248,28 +277,5 @@ FileView {
     property color success: adapter.green
 
     // List of available color names for color pickers (excludes internal/source colors)
-    readonly property var availableColorNames: [
-        "background", "surface", "surfaceBright", "surfaceContainer",
-        "surfaceContainerHigh", "surfaceContainerHighest", "surfaceContainerLow",
-        "surfaceContainerLowest", "surfaceDim", "surfaceTint", "surfaceVariant",
-        "primary", "primaryContainer", "primaryFixed", "primaryFixedDim",
-        "secondary", "secondaryContainer", "secondaryFixed", "secondaryFixedDim",
-        "tertiary", "tertiaryContainer", "tertiaryFixed", "tertiaryFixedDim",
-        "error", "errorContainer",
-        "overBackground", "overSurface", "overSurfaceVariant",
-        "overPrimary", "overPrimaryContainer", "overPrimaryFixed", "overPrimaryFixedVariant",
-        "overSecondary", "overSecondaryContainer", "overSecondaryFixed", "overSecondaryFixedVariant",
-        "overTertiary", "overTertiaryContainer", "overTertiaryFixed", "overTertiaryFixedVariant",
-        "overError", "overErrorContainer",
-        "outline", "outlineVariant",
-        "inversePrimary", "inverseSurface", "inverseOnSurface",
-        "shadow", "scrim",
-        "blue", "blueContainer", "overBlue", "overBlueContainer", "lightBlue",
-        "cyan", "cyanContainer", "overCyan", "overCyanContainer", "lightCyan",
-        "green", "greenContainer", "overGreen", "overGreenContainer", "lightGreen",
-        "magenta", "magentaContainer", "overMagenta", "overMagentaContainer", "lightMagenta",
-        "red", "redContainer", "overRed", "overRedContainer", "lightRed",
-        "yellow", "yellowContainer", "overYellow", "overYellowContainer", "lightYellow",
-        "white", "whiteContainer", "overWhite", "overWhiteContainer"
-    ]
+    readonly property var availableColorNames: ["background", "surface", "surfaceBright", "surfaceContainer", "surfaceContainerHigh", "surfaceContainerHighest", "surfaceContainerLow", "surfaceContainerLowest", "surfaceDim", "surfaceTint", "surfaceVariant", "primary", "primaryContainer", "primaryFixed", "primaryFixedDim", "secondary", "secondaryContainer", "secondaryFixed", "secondaryFixedDim", "tertiary", "tertiaryContainer", "tertiaryFixed", "tertiaryFixedDim", "error", "errorContainer", "overBackground", "overSurface", "overSurfaceVariant", "overPrimary", "overPrimaryContainer", "overPrimaryFixed", "overPrimaryFixedVariant", "overSecondary", "overSecondaryContainer", "overSecondaryFixed", "overSecondaryFixedVariant", "overTertiary", "overTertiaryContainer", "overTertiaryFixed", "overTertiaryFixedVariant", "overError", "overErrorContainer", "outline", "outlineVariant", "inversePrimary", "inverseSurface", "inverseOnSurface", "shadow", "scrim", "blue", "blueContainer", "overBlue", "overBlueContainer", "lightBlue", "cyan", "cyanContainer", "overCyan", "overCyanContainer", "lightCyan", "green", "greenContainer", "overGreen", "overGreenContainer", "lightGreen", "magenta", "magentaContainer", "overMagenta", "overMagentaContainer", "lightMagenta", "red", "redContainer", "overRed", "overRedContainer", "lightRed", "yellow", "yellowContainer", "overYellow", "overYellowContainer", "lightYellow", "white", "whiteContainer", "overWhite", "overWhiteContainer"]
 }

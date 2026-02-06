@@ -17,7 +17,15 @@ Item {
     readonly property real sideMargin: (width - contentWidth) / 2
 
     Component.onCompleted: {
-        NetworkService.rescanWifi();
+        // Defer scan to avoid blocking UI initialization
+        initialScanTimer.start();
+    }
+
+    Timer {
+        id: initialScanTimer
+        interval: 300
+        repeat: false
+        onTriggered: NetworkService.rescanWifi()
     }
 
     // Network list - fills entire width for scroll/drag
@@ -26,6 +34,8 @@ Item {
         anchors.fill: parent
         clip: true
         spacing: 4
+        cacheBuffer: 1000
+        reuseItems: true
 
         model: NetworkService.friendlyWifiNetworks
 
@@ -63,7 +73,7 @@ Item {
                         icon: Icons.sync,
                         tooltip: "Rescan networks",
                         enabled: NetworkService.wifiEnabled,
-                        loading: NetworkService.wifiScanning,
+                        loading: NetworkService.wifiScanning || NetworkService.isUpdating,
                         onClicked: function () {
                             NetworkService.rescanWifi();
                         }

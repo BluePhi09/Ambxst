@@ -25,8 +25,8 @@ import "ConfigValidator.js" as ConfigValidator
 Singleton {
     id: root
 
-    property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/Ambxst/config"
-    property string keybindsPath: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/Ambxst/binds.json"
+    property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/ambxst/config"
+    property string keybindsPath: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/ambxst/binds.json"
 
     property bool pauseAutoSave: false
 
@@ -589,15 +589,22 @@ Singleton {
             property bool launcherIconTint: true
             property bool launcherIconFullTint: true
             property int launcherIconSize: 24
+            property string pillStyle: "default"
             property list<string> screenList: []
             property bool enableFirefoxPlayer: false
             property list<var> barColor: [["surface", 0.0]]
+            property bool frameEnabled: false
+            property int frameThickness: 6
             // Auto-hide properties
             property bool pinnedOnStartup: true
             property bool hoverToReveal: true
             property int hoverRegionHeight: 8
             property bool showPinButton: true
             property bool availableOnFullscreen: false
+            property bool use12hFormat: false
+            property bool containBar: false
+            property bool keepBarShadow: false
+            property bool keepBarBorder: false
         }
     }
 
@@ -716,7 +723,9 @@ Singleton {
 
         adapter: JsonAdapter {
             property string theme: "default"
+            property string position: "top"
             property int hoverRegionHeight: 8
+            property bool keepHidden: false
         }
     }
 
@@ -834,6 +843,8 @@ Singleton {
             property bool blurTransition: true
             property bool windowPreview: true
             property bool wavyLine: true
+            property bool dashboardPersistTabs: true
+            property int dashboardMaxPersistentTabs: 2
         }
     }
 
@@ -1027,6 +1038,7 @@ Singleton {
 
         adapter: JsonAdapter {
             property list<string> disks: ["/"]
+            property bool updateServiceEnabled: true
             property JsonObject idle: JsonObject {
                 property JsonObject general: JsonObject {
                     property string lock_cmd: "ambxst lock"
@@ -1062,6 +1074,12 @@ Singleton {
                 property bool chi_sim: false
                 property bool chi_tra: false
                 property bool kor: false
+            }
+            property JsonObject pomodoro: JsonObject {
+                property int workTime: 1500
+                property int restTime: 300
+                property bool autoStart: false
+                property bool syncSpotify: false
             }
         }
     }
@@ -1115,6 +1133,7 @@ Singleton {
             property bool showOverviewButton: true
             property list<string> ignoredAppRegexes: ["quickshell.*", "xdg-desktop-portal.*"]
             property list<string> screenList: []
+            property bool keepHidden: false
         }
     }
 
@@ -1251,10 +1270,51 @@ Singleton {
                 current.ambxst = {};
                 needsUpdate = true;
             }
-            if (!current.ambxst.dashboard) {
-                current.ambxst.dashboard = {};
+
+            // Migration from nested dashboard structure to flat structure
+            if (current.ambxst.dashboard && typeof current.ambxst.dashboard === "object" && !current.ambxst.dashboard.modifiers) {
+                console.log("Migrating nested ambxst binds to flat structure...");
+                const nested = current.ambxst.dashboard;
+                
+                // Map old names to new names and update arguments
+                if (nested.widgets) {
+                    current.ambxst.launcher = nested.widgets;
+                    current.ambxst.launcher.argument = "ambxst run launcher";
+                }
+                if (nested.dashboard) {
+                    current.ambxst.dashboard = nested.dashboard;
+                    current.ambxst.dashboard.argument = "ambxst run dashboard";
+                }
+                if (nested.assistant) {
+                    current.ambxst.assistant = nested.assistant;
+                    current.ambxst.assistant.argument = "ambxst run assistant";
+                }
+                if (nested.clipboard) {
+                    current.ambxst.clipboard = nested.clipboard;
+                    current.ambxst.clipboard.argument = "ambxst run clipboard";
+                }
+                if (nested.emoji) {
+                    current.ambxst.emoji = nested.emoji;
+                    current.ambxst.emoji.argument = "ambxst run emoji";
+                }
+                if (nested.notes) {
+                    current.ambxst.notes = nested.notes;
+                    current.ambxst.notes.argument = "ambxst run notes";
+                }
+                if (nested.tmux) {
+                    current.ambxst.tmux = nested.tmux;
+                    current.ambxst.tmux.argument = "ambxst run tmux";
+                }
+                if (nested.wallpapers) {
+                    current.ambxst.wallpapers = nested.wallpapers;
+                    current.ambxst.wallpapers.argument = "ambxst run wallpapers";
+                }
+
+                // Remove the old nested object
+                delete current.ambxst.dashboard;
                 needsUpdate = true;
             }
+
             if (!current.ambxst.system) {
                 current.ambxst.system = {};
                 needsUpdate = true;
@@ -1275,12 +1335,12 @@ Singleton {
                 };
             }
 
-            // Check dashboard binds
-            const dashboardKeys = ["assistant", "clipboard", "emoji", "notes", "tmux", "wallpapers", "widgets"];
-            for (const key of dashboardKeys) {
-                if (!current.ambxst.dashboard[key] && adapter.ambxst.dashboard && adapter.ambxst.dashboard[key]) {
-                    console.log("Adding missing dashboard bind:", key);
-                    current.ambxst.dashboard[key] = createCleanBind(adapter.ambxst.dashboard[key]);
+            // Check ambxst core binds
+            const ambxstKeys = ["launcher", "dashboard", "assistant", "clipboard", "emoji", "notes", "tmux", "wallpapers"];
+            for (const key of ambxstKeys) {
+                if (!current.ambxst[key] && adapter.ambxst[key]) {
+                    console.log("Adding missing ambxst bind:", key);
+                    current.ambxst[key] = createCleanBind(adapter.ambxst[key]);
                     needsUpdate = true;
                 }
             }
@@ -1405,50 +1465,55 @@ Singleton {
 
         adapter: JsonAdapter {
             property JsonObject ambxst: JsonObject {
+                property JsonObject launcher: JsonObject {
+                    property list<string> modifiers: ["SUPER"]
+                    property string key: "Super_L"
+                    property string dispatcher: "exec"
+                    property string argument: "ambxst run launcher"
+                    property string flags: "r"
+                }
                 property JsonObject dashboard: JsonObject {
-                    property JsonObject assistant: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "A"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run dashboard-assistant"
-                    }
-                    property JsonObject clipboard: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "V"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run dashboard-clipboard"
-                    }
-                    property JsonObject emoji: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "PERIOD"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run dashboard-emoji"
-                    }
-                    property JsonObject notes: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "N"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run dashboard-notes"
-                    }
-                    property JsonObject tmux: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "T"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run dashboard-tmux"
-                    }
-                    property JsonObject wallpapers: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "COMMA"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run dashboard-wallpapers"
-                    }
-                    property JsonObject widgets: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "Super_L"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run dashboard-widgets"
-                        property string flags: "r"
-                    }
+                    property list<string> modifiers: ["SUPER"]
+                    property string key: "D"
+                    property string dispatcher: "exec"
+                    property string argument: "ambxst run dashboard"
+                    property string flags: ""
+                }
+                property JsonObject assistant: JsonObject {
+                    property list<string> modifiers: ["SUPER"]
+                    property string key: "A"
+                    property string dispatcher: "exec"
+                    property string argument: "ambxst run assistant"
+                }
+                property JsonObject clipboard: JsonObject {
+                    property list<string> modifiers: ["SUPER"]
+                    property string key: "V"
+                    property string dispatcher: "exec"
+                    property string argument: "ambxst run clipboard"
+                }
+                property JsonObject emoji: JsonObject {
+                    property list<string> modifiers: ["SUPER"]
+                    property string key: "PERIOD"
+                    property string dispatcher: "exec"
+                    property string argument: "ambxst run emoji"
+                }
+                property JsonObject notes: JsonObject {
+                    property list<string> modifiers: ["SUPER"]
+                    property string key: "N"
+                    property string dispatcher: "exec"
+                    property string argument: "ambxst run notes"
+                }
+                property JsonObject tmux: JsonObject {
+                    property list<string> modifiers: ["SUPER"]
+                    property string key: "T"
+                    property string dispatcher: "exec"
+                    property string argument: "ambxst run tmux"
+                }
+                property JsonObject wallpapers: JsonObject {
+                    property list<string> modifiers: ["SUPER"]
+                    property string key: "COMMA"
+                    property string dispatcher: "exec"
+                    property string argument: "ambxst run wallpapers"
                 }
                 property JsonObject system: JsonObject {
                     property JsonObject config: JsonObject {
@@ -1525,14 +1590,15 @@ Singleton {
             }
             // Functions to get defaults
             readonly property var defaultAmbxstBinds: {
-                "dashboard": {
-                    "assistant": { "modifiers": ["SUPER"], "key": "A", "dispatcher": "exec", "argument": "ambxst run dashboard-assistant", "flags": "" },
-                    "clipboard": { "modifiers": ["SUPER"], "key": "V", "dispatcher": "exec", "argument": "ambxst run dashboard-clipboard", "flags": "" },
-                    "emoji": { "modifiers": ["SUPER"], "key": "PERIOD", "dispatcher": "exec", "argument": "ambxst run dashboard-emoji", "flags": "" },
-                    "notes": { "modifiers": ["SUPER"], "key": "N", "dispatcher": "exec", "argument": "ambxst run dashboard-notes", "flags": "" },
-                    "tmux": { "modifiers": ["SUPER"], "key": "T", "dispatcher": "exec", "argument": "ambxst run dashboard-tmux", "flags": "" },
-                    "wallpapers": { "modifiers": ["SUPER"], "key": "COMMA", "dispatcher": "exec", "argument": "ambxst run dashboard-wallpapers", "flags": "" },
-                    "widgets": { "modifiers": ["SUPER"], "key": "Super_L", "dispatcher": "exec", "argument": "ambxst run dashboard-widgets", "flags": "r" }
+                "ambxst": {
+                    "launcher": { "modifiers": ["SUPER"], "key": "Super_L", "dispatcher": "exec", "argument": "ambxst run launcher", "flags": "r" },
+                    "dashboard": { "modifiers": ["SUPER"], "key": "D", "dispatcher": "exec", "argument": "ambxst run dashboard", "flags": "" },
+                    "assistant": { "modifiers": ["SUPER"], "key": "A", "dispatcher": "exec", "argument": "ambxst run assistant", "flags": "" },
+                    "clipboard": { "modifiers": ["SUPER"], "key": "V", "dispatcher": "exec", "argument": "ambxst run clipboard", "flags": "" },
+                    "emoji": { "modifiers": ["SUPER"], "key": "PERIOD", "dispatcher": "exec", "argument": "ambxst run emoji", "flags": "" },
+                    "notes": { "modifiers": ["SUPER"], "key": "N", "dispatcher": "exec", "argument": "ambxst run notes", "flags": "" },
+                    "tmux": { "modifiers": ["SUPER"], "key": "T", "dispatcher": "exec", "argument": "ambxst run tmux", "flags": "" },
+                    "wallpapers": { "modifiers": ["SUPER"], "key": "COMMA", "dispatcher": "exec", "argument": "ambxst run wallpapers", "flags": "" }
                 },
                 "system": {
                     "config": { "modifiers": ["SUPER", "SHIFT"], "key": "C", "dispatcher": "exec", "argument": "ambxst run config", "flags": "" },
@@ -3330,6 +3396,38 @@ Singleton {
     // Notch configuration
     property QtObject notch: notchLoader.adapter
     property string notchTheme: notch.theme
+    property string notchPosition: notch.position
+
+    onNotchPositionChanged: {
+        if (!initialLoadComplete || !dockReady) return;
+
+        // If notch moves to bottom
+        if (notchPosition === "bottom") {
+            // Check for conflict with Dock (if Dock is bottom)
+            if (dock.position === "bottom") {
+                console.log("Notch moved to bottom, adjusting Dock position...");
+                // Move Dock based on Bar position to avoid overcrowding
+                if (bar.position === "left") {
+                    dock.position = "right";
+                } else {
+                    dock.position = "left";
+                }
+                // Trigger save
+                GlobalStates.markShellChanged();
+            }
+        } 
+        // If notch moves to top
+        else if (notchPosition === "top") {
+            // Optional: Move Dock back to bottom if it was displaced?
+            // User implied "change with this". A safe default is restoring to bottom 
+            // if it's currently on the sides, assuming Bottom is the preferred Dock state.
+            if (dock.position === "left" || dock.position === "right") {
+                console.log("Notch moved to top, restoring Dock to bottom...");
+                dock.position = "bottom";
+                GlobalStates.markShellChanged();
+            }
+        }
+    }
 
     // Hyprland configuration
     property QtObject hyprland: hyprlandLoader.adapter

@@ -5,13 +5,20 @@ var data = {
     "launcherIcon": "",
     "launcherIconTint": true,
     "launcherIconFullTint": true,
-    "launcherIconSize": 18,
+    "launcherIconSize": 24,
+    "pillStyle": "default",
     "screenList": [],
     "enableFirefoxPlayer": false,
     "barColor": [["surface", 0.0]],
+    "frameEnabled": false,
+    "frameThickness": 6,
     "pinnedOnStartup": true,
     "hoverToReveal": true,
     "hoverRegionHeight": 8,
     "showPinButton": true,
-    "availableOnFullscreen": false
+    "availableOnFullscreen": false,
+    "use12hFormat": false,
+    "containBar": false,
+    "keepBarShadow": false,
+    "keepBarBorder": false
 }

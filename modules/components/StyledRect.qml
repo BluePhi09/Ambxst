@@ -68,31 +68,36 @@ ClippingRectangle {
         width: 256
         height: 32 // Increase height to avoid interpolation artifacts at non-integer scales
         visible: false
-        
+
         onPaint: {
             var ctx = getContext("2d");
             ctx.clearRect(0, 0, width, height);
-            
+
             var stops = root.gradientStops;
-            if (!stops || stops.length === 0) return;
+            if (!stops || stops.length === 0)
+                return;
 
             var grad = ctx.createLinearGradient(0, 0, width, 0);
             for (var i = 0; i < stops.length; i++) {
                 var s = stops[i];
                 grad.addColorStop(s[1], Config.resolveColor(s[0]));
             }
-            
+
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, width, height);
         }
-        
+
         Connections {
             target: root
-            function onGradientStopsChanged() { linearGradientCanvas.requestPaint(); }
+            function onGradientStopsChanged() {
+                linearGradientCanvas.requestPaint();
+            }
         }
         Connections {
             target: Colors
-            function onLoaded() { linearGradientCanvas.requestPaint(); }
+            function onLoaded() {
+                linearGradientCanvas.requestPaint();
+            }
         }
         Component.onCompleted: requestPaint()
     }
@@ -118,6 +123,7 @@ ClippingRectangle {
         property real canvasHeight: height
         property var gradTex: gradientTextureSource
 
+        vertexShader: "linear_gradient.vert.qsb"
         fragmentShader: "linear_gradient.frag.qsb"
     }
 
@@ -133,6 +139,7 @@ ClippingRectangle {
         property real canvasHeight: height
         property var gradTex: gradientTextureSource
 
+        vertexShader: "radial_gradient.vert.qsb"
         fragmentShader: "radial_gradient.frag.qsb"
     }
 
@@ -167,12 +174,16 @@ ClippingRectangle {
     layer.effect: Shadow {}
 
     // Border overlay to avoid ClippingRectangle artifacts
-    Rectangle {
+    ClippingRectangle {
         anchors.fill: parent
         radius: root.radius
+        topLeftRadius: root.topLeftRadius
+        topRightRadius: root.topRightRadius
+        bottomLeftRadius: root.bottomLeftRadius
+        bottomRightRadius: root.bottomRightRadius
         color: "transparent"
         border.color: Config.resolveColor(borderData[0])
         border.width: borderData[1]
-        visible: root.enableBorder
+        visible: root.enableBorder && (root.variant !== "bg" || Config.bar.keepBarBorder)
     }
 }

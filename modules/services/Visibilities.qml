@@ -14,6 +14,8 @@ Singleton {
     property var barPanels: ({})
     property var notches: ({})
     property var notchPanels: ({})
+    property var docks: ({})
+    property var dockPanels: ({})
     property string currentActiveModule: ""
     property string lastFocusedScreen: ""
     property var contextMenu: null
@@ -40,20 +42,34 @@ Singleton {
         return getForScreen(Hyprland.focusedMonitor.name);
     }
 
+    // Helper to clone map and trigger update
+    function _updateMap(map, key, value) {
+        var newMap = {};
+        for (var k in map) {
+            newMap[k] = map[k];
+        }
+        if (value === null) {
+            delete newMap[key];
+        } else {
+            newMap[key] = value;
+        }
+        return newMap;
+    }
+
     function registerPanel(screenName, panel) {
-        panels[screenName] = panel;
+        panels = _updateMap(panels, screenName, panel);
     }
 
     function unregisterPanel(screenName) {
-        delete panels[screenName];
+        panels = _updateMap(panels, screenName, null);
     }
 
     function registerBar(screenName, barContainer) {
-        bars[screenName] = barContainer;
+        bars = _updateMap(bars, screenName, barContainer);
     }
 
     function unregisterBar(screenName) {
-        delete bars[screenName];
+        bars = _updateMap(bars, screenName, null);
     }
 
     function getBarForScreen(screenName) {
@@ -61,11 +77,11 @@ Singleton {
     }
 
     function registerBarPanel(screenName, barPanel) {
-        barPanels[screenName] = barPanel;
+        barPanels = _updateMap(barPanels, screenName, barPanel);
     }
 
     function unregisterBarPanel(screenName) {
-        delete barPanels[screenName];
+        barPanels = _updateMap(barPanels, screenName, null);
     }
 
     function getBarPanelForScreen(screenName) {
@@ -73,11 +89,11 @@ Singleton {
     }
 
     function registerNotch(screenName, notchContainer) {
-        notches[screenName] = notchContainer;
+        notches = _updateMap(notches, screenName, notchContainer);
     }
 
     function unregisterNotch(screenName) {
-        delete notches[screenName];
+        notches = _updateMap(notches, screenName, null);
     }
 
     function getNotchForScreen(screenName) {
@@ -85,15 +101,39 @@ Singleton {
     }
 
     function registerNotchPanel(screenName, notchPanel) {
-        notchPanels[screenName] = notchPanel;
+        notchPanels = _updateMap(notchPanels, screenName, notchPanel);
     }
 
     function unregisterNotchPanel(screenName) {
-        delete notchPanels[screenName];
+        notchPanels = _updateMap(notchPanels, screenName, null);
     }
 
     function getNotchPanelForScreen(screenName) {
         return notchPanels[screenName] || null;
+    }
+
+    function registerDock(screenName, dockContainer) {
+        docks = _updateMap(docks, screenName, dockContainer);
+    }
+
+    function unregisterDock(screenName) {
+        docks = _updateMap(docks, screenName, null);
+    }
+
+    function getDockForScreen(screenName) {
+        return docks[screenName] || null;
+    }
+
+    function registerDockPanel(screenName, dockPanel) {
+        dockPanels = _updateMap(dockPanels, screenName, dockPanel);
+    }
+
+    function unregisterDockPanel(screenName) {
+        dockPanels = _updateMap(dockPanels, screenName, null);
+    }
+
+    function getDockPanelForScreen(screenName) {
+        return dockPanels[screenName] || null;
     }
 
     function setActiveModule(moduleName) {

@@ -37,6 +37,7 @@ Commands:
     brightness -r [monitor]           Restore saved brightness
     brightness -l                     List monitors and their brightness
     help                              Show this help message
+    goodbye                           Uninstall Ambxst :(
 
 Examples:
     ambxst brightness 75              Set all monitors to 75%
@@ -80,10 +81,48 @@ find_ambxst_pid() {
 	echo "$pid"
 }
 
+find_ambxst_pid_cached() {
+	# Optimized PID lookup: check cache file first, then fall back to pgrep
+	local pid_file="/tmp/ambxst.pid"
+	local pid=""
+
+	# Check if cache file exists and process is alive
+	if [ -f "$pid_file" ]; then
+		pid=$(<"$pid_file" 2>/dev/null)
+		# Verify process still exists using kill -0 (no signal, just test)
+		if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+			echo "$pid"
+			return 0
+		fi
+		# PID is stale, remove cache file
+		rm -f "$pid_file"
+	fi
+
+	# Fallback: use expensive pgrep search
+	pid=$(find_ambxst_pid)
+	echo "$pid"
+}
+
+restart_ambxst() {
+	PID=$(find_ambxst_pid_cached)
+	if [ -n "$PID" ]; then
+		echo "Stopping Ambxst (PID $PID)..."
+		kill "$PID"
+		# Wait for process to exit
+		while kill -0 "$PID" 2>/dev/null; do
+			sleep 0.1
+		done
+	fi
+	echo "Starting Ambxst..."
+	# Relaunch the script in background
+	nohup "$0" >/dev/null 2>&1 &
+}
+
 case "${1:-}" in
 update)
 	echo "Updating Ambxst..."
-	exec curl -fsSL get.axeni.de/ambxst | sh
+	curl -fsSL get.axeni.de/ambxst | sh
+	restart_ambxst
 	;;
 refresh)
 	echo "Refreshing Ambxst profile..."
@@ -104,8 +143,8 @@ run)
 		exit 0
 	fi
 
-	# Fallback path: Use QS IPC (Slow, requires finding PID)
-	PID=$(find_ambxst_pid)
+	# Fallback path: Use QS IPC with cached PID lookup
+	PID=$(find_ambxst_pid_cached)
 	if [ -z "$PID" ]; then
 		echo "Error: Ambxst is not running"
 		exit 1
@@ -117,8 +156,7 @@ run)
 	}
 	;;
 lock)
-	# Trigger lockscreen via quickshell-ipc
-	PID=$(find_ambxst_pid)
+	PID=$(find_ambxst_pid_cached)
 	if [ -z "$PID" ]; then
 		echo "Error: Ambxst is not running"
 		exit 1
@@ -129,21 +167,10 @@ lock)
 	}
 	;;
 reload)
-	PID=$(find_ambxst_pid)
-	if [ -n "$PID" ]; then
-		echo "Stopping Ambxst (PID $PID)..."
-		kill "$PID"
-		# Wait for process to exit
-		while kill -0 "$PID" 2>/dev/null; do
-			sleep 0.1
-		done
-	fi
-	echo "Starting Ambxst..."
-	# Relaunch the script in background
-	nohup "$0" >/dev/null 2>&1 &
+	restart_ambxst
 	;;
 quit)
-	PID=$(find_ambxst_pid)
+	PID=$(find_ambxst_pid_cached)
 	if [ -n "$PID" ]; then
 		echo "Stopping Ambxst (PID $PID)..."
 		kill "$PID"
@@ -181,7 +208,7 @@ suspend)
 	fi
 	;;
 brightness)
-	PID=$(find_ambxst_pid)
+	PID=$(find_ambxst_pid_cached)
 	if [ -z "$PID" ]; then
 		echo "Error: Ambxst is not running"
 		exit 1
@@ -400,6 +427,46 @@ brightness)
 		echo "Set brightness to ${VALUE}% for $MONITOR"
 	fi
 	;;
+goodbye)
+	echo "Uninstalling Ambxst..."
+
+	read -p "Are you sure? (y/N): " -n 1 -r
+	echo
+	if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+		echo "Uninstall aborted."
+		exit 0
+	fi
+
+	if [ -f /etc/NIXOS ]; then
+		if nix profile list 2>/dev/null | grep -q "Ambxst"; then
+			echo "Removing from nix profile..."
+			nix profile remove Ambxst
+		elif command -v ambxst >/dev/null 2>&1; then
+			echo "Ambxst was declared in this system. Please remove it from your configuration in order to uninstall."
+		else
+			echo "Ambxst is not installed."
+		fi
+		exit 0
+	fi
+
+	read -p "Remove configuration files? (y/N): " -n 1 -r
+	echo
+	REMOVE_CONFIG=false
+	if [[ $REPLY =~ ^[Yy]$ ]]; then
+		REMOVE_CONFIG=true
+	fi
+
+	rm -rf "$HOME/.local/src/ambxst"
+	rm -rf "$HOME/.local/share/ambxst"
+	rm -rf "$HOME/.local/state/ambxst"
+
+	if [ "$REMOVE_CONFIG" = true ]; then
+		rm -rf "$HOME/.config/ambxst"
+		echo "Configuration files removed."
+	fi
+
+	echo "Ambxst uninstalled. :("
+	;;
 help | --help | -h)
 	show_help
 	;;
@@ -416,6 +483,9 @@ help | --help | -h)
 
 	# Force Qt6CT
 	export QT_QPA_PLATFORMTHEME=qt6ct
+
+	# Cache this script's PID before exec (for fast PID lookups in future CLI calls)
+	echo $$ >/tmp/ambxst.pid
 
 	# Launch QuickShell with the main shell.qml
 	# If NIXGL_BIN is set (NixOS/Nix setup), use it. Otherwise, just run qs directly.

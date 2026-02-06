@@ -163,8 +163,9 @@ Singleton {
     // Lockscreen state
     property bool lockscreenVisible: false
 
-    // Ambxst Settings state
-    property bool settingsVisible: false
+    // OSD state
+    property bool osdVisible: false
+    property string osdIndicator: "volume" // volume, mic, brightness
 
     // Screenshot Tool state
     property bool screenshotToolVisible: false
@@ -182,6 +183,9 @@ Singleton {
 
     // Mirror Tool state
     property bool mirrorWindowVisible: false
+
+    // Settings Window state
+    property bool settingsWindowVisible: false
 
     // Theme editor state - persists across tab switches
     property bool themeHasChanges: false
@@ -210,11 +214,6 @@ Singleton {
         "halftoneDotMin", "halftoneDotMax", "halftoneStart", "halftoneEnd",
         "halftoneDotColor", "halftoneBackgroundColor", "itemColor", "opacity"
     ]
-
-    function openSettings() {
-        settingsVisible = false;
-        settingsVisible = true;
-    }
 
     // Deep copy a single SR variant
     function _copySrVariant(src) {
@@ -341,11 +340,11 @@ Singleton {
 
     // Shell config sections and their properties
     readonly property var _shellSections: {
-        "bar": ["position", "launcherIcon", "launcherIconTint", "launcherIconFullTint", "launcherIconSize", "enableFirefoxPlayer", "screenList", "pinnedOnStartup", "hoverToReveal", "hoverRegionHeight", "showPinButton", "availableOnFullscreen"],
-        "notch": ["theme", "hoverRegionHeight"],
+        "bar": ["position", "launcherIcon", "launcherIconTint", "launcherIconFullTint", "launcherIconSize", "enableFirefoxPlayer", "screenList", "frameEnabled", "frameThickness", "pinnedOnStartup", "hoverToReveal", "hoverRegionHeight", "showPinButton", "availableOnFullscreen", "pillStyle", "use12hFormat", "containBar", "keepBarShadow", "keepBarBorder"],
+        "notch": ["theme", "position", "hoverRegionHeight", "keepHidden"],
         "workspaces": ["shown", "showAppIcons", "alwaysShowNumbers", "showNumbers", "dynamic"],
         "overview": ["rows", "columns", "scale", "workspaceSpacing"],
-        "dock": ["enabled", "theme", "position", "height", "iconSize", "spacing", "margin", "hoverRegionHeight", "pinnedOnStartup", "hoverToReveal", "availableOnFullscreen", "showRunningIndicators", "showPinButton", "showOverviewButton", "screenList"],
+        "dock": ["enabled", "theme", "position", "height", "iconSize", "spacing", "margin", "hoverRegionHeight", "pinnedOnStartup", "hoverToReveal", "availableOnFullscreen", "showRunningIndicators", "showPinButton", "showOverviewButton", "screenList", "keepHidden"],
         "lockscreen": ["position"],
         "desktop": ["enabled", "iconSize", "spacingVertical", "textColor"],
         "system": ["idle", "ocr"]

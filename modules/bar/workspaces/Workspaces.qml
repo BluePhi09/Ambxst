@@ -24,6 +24,10 @@ Item {
     property list<int> dynamicWorkspaceIds: []
     property int effectiveWorkspaceCount: Config.workspaces.dynamic ? dynamicWorkspaceIds.length : Config.workspaces.shown
     property int widgetPadding: 4
+    property real radius: Styling.radius(0)
+    property real startRadius: radius
+    property real endRadius: radius
+    
     property int baseSize: 36
     property int workspaceButtonSize: baseSize - widgetPadding * 2
     property int workspaceButtonWidth: workspaceButtonSize
@@ -36,8 +40,8 @@ Item {
 
     function updateWorkspaceOccupied() {
         if (Config.workspaces.dynamic) {
-            // Get occupied workspace IDs, sorted and limited by 'shown'
-            const occupiedIds = Hyprland.workspaces.values.filter(ws => HyprlandData.windowList.some(w => w.workspace.id === ws.id)).map(ws => ws.id).sort((a, b) => a - b).slice(0, Config.workspaces.shown);
+            // Get occupied workspace IDs using the precomputed occupation map, sorted and limited by 'shown'
+            const occupiedIds = Hyprland.workspaces.values.filter(ws => HyprlandData.workspaceOccupationMap[ws.id]).map(ws => ws.id).sort((a, b) => a - b).slice(0, Config.workspaces.shown);
 
             // Always include active workspace, even if empty
             const activeId = monitor?.activeWorkspace?.id || 1;
@@ -52,13 +56,13 @@ Item {
             dynamicWorkspaceIds = occupiedIds;
             workspaceOccupied = Array.from({
                 length: dynamicWorkspaceIds.length
-            }, (_, i) => HyprlandData.windowList.some(w => w.workspace.id === dynamicWorkspaceIds[i]));
+            }, (_, i) => HyprlandData.workspaceOccupationMap[dynamicWorkspaceIds[i]]);
         } else {
             workspaceOccupied = Array.from({
                 length: Config.workspaces.shown
             }, (_, i) => {
                 const wsId = workspaceGroup * Config.workspaces.shown + i + 1;
-                return HyprlandData.windowList.some(w => w.workspace.id === wsId);
+                return HyprlandData.workspaceOccupationMap[wsId];
             });
         }
         updateOccupiedRanges();
@@ -111,7 +115,7 @@ Item {
 
     Timer {
         id: updateTimer
-        interval: 50
+        interval: 100
         repeat: false
         onTriggered: workspacesWidget.updateWorkspaceOccupied()
     }
@@ -154,11 +158,18 @@ Item {
     implicitWidth: orientation === "vertical" ? baseSize : workspaceButtonSize * effectiveWorkspaceCount + widgetPadding * 2
     implicitHeight: orientation === "vertical" ? workspaceButtonSize * effectiveWorkspaceCount + widgetPadding * 2 : baseSize
 
+    readonly property bool effectiveContainBar: Config.bar.containBar && (Config.bar.frameEnabled ?? false)
+
     StyledRect {
         id: bgRect
         variant: "bg"
         anchors.fill: parent
-        enableShadow: Config.showBackground
+        enableShadow: Config.showBackground && (!effectiveContainBar || Config.bar.keepBarShadow)
+        
+        topLeftRadius: orientation === "vertical" ? workspacesWidget.startRadius : workspacesWidget.startRadius
+        topRightRadius: orientation === "vertical" ? workspacesWidget.startRadius : workspacesWidget.endRadius
+        bottomLeftRadius: orientation === "vertical" ? workspacesWidget.endRadius : workspacesWidget.startRadius
+        bottomRightRadius: orientation === "vertical" ? workspacesWidget.endRadius : workspacesWidget.endRadius
     }
 
     WheelHandler {
@@ -200,7 +211,7 @@ Item {
                 width: (modelData.end - modelData.start + 1) * workspaceButtonWidth
                 height: workspaceButtonWidth
 
-                radius: Styling.radius(0) > 0 ? Math.max(Styling.radius(0) - widgetPadding, 0) : 0
+                radius: workspacesWidget.startRadius > 0 ? Math.max(workspacesWidget.startRadius - widgetPadding, 0) : 0
 
                 opacity: Config.theme.srFocus.opacity
 
@@ -251,7 +262,7 @@ Item {
                 width: workspaceButtonWidth
                 height: (modelData.end - modelData.start + 1) * workspaceButtonWidth
 
-                radius: Styling.radius(0) > 0 ? Math.max(Styling.radius(0) - widgetPadding, 0) : 0
+                radius: workspacesWidget.startRadius > 0 ? Math.max(workspacesWidget.startRadius - widgetPadding, 0) : 0
 
                 opacity: Config.theme.srFocus.opacity
 
@@ -298,10 +309,11 @@ Item {
         implicitHeight: workspaceButtonWidth - activeWorkspaceMargin * 2
 
         radius: {
-            const currentWorkspaceHasWindows = Hyprland.workspaces.values.some(ws => ws.id === (monitor?.activeWorkspace?.id || 1) && HyprlandData.windowList.some(w => w.workspace.id === ws.id));
-            if (Config.roundness === 0)
+            const activeWorkspaceId = monitor?.activeWorkspace?.id || 1;
+            const currentWorkspaceHasWindows = HyprlandData.workspaceOccupationMap[activeWorkspaceId];
+            if (workspacesWidget.radius === 0)
                 return 0;
-            return currentWorkspaceHasWindows ? Config.roundness > 0 ? Math.max(Config.roundness - parent.widgetPadding - activeWorkspaceMargin, 0) : 0 : implicitHeight / 2;
+            return currentWorkspaceHasWindows ? workspacesWidget.radius > 0 ? Math.max(workspacesWidget.radius - parent.widgetPadding - activeWorkspaceMargin, 0) : 0 : implicitHeight / 2;
         }
 
         anchors.verticalCenter: parent.verticalCenter
@@ -353,10 +365,11 @@ Item {
         implicitHeight: Math.abs(idx1 - idx2) * workspaceButtonWidth + workspaceButtonWidth - activeWorkspaceMargin * 2
 
         radius: {
-            const currentWorkspaceHasWindows = Hyprland.workspaces.values.some(ws => ws.id === (monitor?.activeWorkspace?.id || 1) && HyprlandData.windowList.some(w => w.workspace.id === ws.id));
-            if (Config.roundness === 0)
+            const activeWorkspaceId = monitor?.activeWorkspace?.id || 1;
+            const currentWorkspaceHasWindows = HyprlandData.workspaceOccupationMap[activeWorkspaceId];
+            if (workspacesWidget.radius === 0)
                 return 0;
-            return currentWorkspaceHasWindows ? Config.roundness > 0 ? Math.max(Config.roundness - parent.widgetPadding - activeWorkspaceMargin, 0) : 0 : implicitWidth / 2;
+            return currentWorkspaceHasWindows ? workspacesWidget.radius > 0 ? Math.max(workspacesWidget.radius - parent.widgetPadding - activeWorkspaceMargin, 0) : 0 : implicitWidth / 2;
         }
 
         anchors.horizontalCenter: parent.horizontalCenter
@@ -418,7 +431,7 @@ Item {
                     implicitWidth: workspaceButtonWidth
                     implicitHeight: workspaceButtonWidth
                     property var focusedWindow: {
-                        const windowsInThisWorkspace = HyprlandData.windowList.filter(w => w.workspace.id == button.workspaceValue);
+                        const windowsInThisWorkspace = HyprlandData.workspaceWindowsMap[button.workspaceValue] || [];
                         if (windowsInThisWorkspace.length === 0)
                             return null;
                         // Get the window with the lowest focusHistoryID (most recently focused)
@@ -483,7 +496,6 @@ Item {
 
                             source: workspaceButtonBackground.mainAppIconSource
                             implicitSize: (!Config.workspaces.alwaysShowNumbers && Config.workspaces.showAppIcons) ? workspaceIconSize : workspaceIconSizeShrinked
-                            visible: !Config.tintIcons
 
                             Behavior on opacity {
                                 enabled: Config.animDuration > 0
@@ -550,7 +562,7 @@ Item {
                     implicitWidth: workspaceButtonWidth
                     implicitHeight: workspaceButtonWidth
                     property var focusedWindow: {
-                        const windowsInThisWorkspace = HyprlandData.windowList.filter(w => w.workspace.id == buttonVert.workspaceValue);
+                        const windowsInThisWorkspace = HyprlandData.workspaceWindowsMap[buttonVert.workspaceValue] || [];
                         if (windowsInThisWorkspace.length === 0)
                             return null;
                         // Get the window with the lowest focusHistoryID (most recently focused)
@@ -615,7 +627,6 @@ Item {
 
                             source: workspaceButtonBackgroundVert.mainAppIconSource
                             implicitSize: (!Config.workspaces.alwaysShowNumbers && Config.workspaces.showAppIcons) ? workspaceIconSize : workspaceIconSizeShrinked
-                            visible: !Config.tintIcons
 
                             Behavior on opacity {
                                 enabled: Config.animDuration > 0

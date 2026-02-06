@@ -9,22 +9,43 @@ Item {
     id: root
     required property string position
 
-    visible: Config.showBackground
+    default property alias content: contentContainer.data
 
-    readonly property int cornerSize: Config.theme.enableCorners ? Styling.radius(4) : 0
+    // Item should be always visible to allow children (widgets) to render
+    // even if background is hidden.
+    visible: true
+
+    readonly property bool effectiveContainBar: Config.bar.containBar && (Config.bar.frameEnabled ?? false)
+
+    // Corner size logic: only when at the very edge (no margins)
+    readonly property int cornerSize: (Config.theme.enableCorners && !effectiveContainBar && root.outerMargin === 0) ? Styling.radius(4) : 0
     readonly property bool isHorizontal: position === "top" || position === "bottom"
     readonly property bool cornersVisible: Config.theme.enableCorners && cornerSize > 0
 
-    // StyledRect expandido que cubre bar + corners
+    // New logic: padding 4 if opaque (>1%), 0 if transparent
+    readonly property real bgOpacity: Config.theme.srBarBg.opacity
+    readonly property int padding: bgOpacity < 0.01 ? 0 : 4
+
+    // Displacement logic: only when !effectiveContainBar
+    // Uses Config.theme.srBg.border[1] as requested
+    readonly property int borderWidth: Config.theme.srBg.border[1]
+    readonly property int displacement: !effectiveContainBar ? borderWidth * (Config.bar.frameEnabled ? 2 : 1) : 0
+
+    // Combined outer margin for screen/frame edges
+    // This margin (4px) should only exist when bar is floating (!effectiveContainBar)
+    readonly property int outerMargin: !effectiveContainBar ? (4 + displacement) : 0
+
+    // StyledRect expanded that covers bar + corners
     StyledRect {
         id: barBackground
         variant: "barbg"
-        radius: 0
-        enableBorder: false
+        visible: Config.showBackground
+        radius: Styling.radius(effectiveContainBar ? 4 : 0)
+        enableBorder: true
 
-        // Posicion y tamaño expandidos para cubrir corners
-        x: position === "right" ? -cornerSize : 0
-        y: position === "bottom" ? -cornerSize : 0
+        // Position and size expanded to cover corners
+        x: (position === "right") ? -cornerSize : 0
+        y: (position === "bottom") ? -cornerSize : 0
         width: root.width + (isHorizontal ? 0 : cornerSize)
         height: root.height + (isHorizontal ? cornerSize : 0)
 
@@ -35,6 +56,12 @@ Item {
             maskThresholdMin: 0.5
             maskSpreadAtMin: 1.0
         }
+    }
+
+    Item {
+        id: contentContainer
+        anchors.fill: parent
+        anchors.margins: root.padding
     }
 
     // Mascara combinada para la bar + corners
@@ -106,10 +133,14 @@ Item {
             RoundCorner {
                 anchors.fill: parent
                 corner: {
-                    if (root.position === "top") return RoundCorner.CornerEnum.TopLeft
-                    if (root.position === "bottom") return RoundCorner.CornerEnum.BottomLeft
-                    if (root.position === "left") return RoundCorner.CornerEnum.TopLeft
-                    if (root.position === "right") return RoundCorner.CornerEnum.TopRight
+                    if (root.position === "top")
+                        return RoundCorner.CornerEnum.TopLeft;
+                    if (root.position === "bottom")
+                        return RoundCorner.CornerEnum.BottomLeft;
+                    if (root.position === "left")
+                        return RoundCorner.CornerEnum.TopLeft;
+                    if (root.position === "right")
+                        return RoundCorner.CornerEnum.TopRight;
                 }
                 size: Math.max(cornerSize, 1)
                 color: "white"
@@ -164,10 +195,14 @@ Item {
             RoundCorner {
                 anchors.fill: parent
                 corner: {
-                    if (root.position === "top") return RoundCorner.CornerEnum.TopRight
-                    if (root.position === "bottom") return RoundCorner.CornerEnum.BottomRight
-                    if (root.position === "left") return RoundCorner.CornerEnum.BottomLeft
-                    if (root.position === "right") return RoundCorner.CornerEnum.BottomRight
+                    if (root.position === "top")
+                        return RoundCorner.CornerEnum.TopRight;
+                    if (root.position === "bottom")
+                        return RoundCorner.CornerEnum.BottomRight;
+                    if (root.position === "left")
+                        return RoundCorner.CornerEnum.BottomLeft;
+                    if (root.position === "right")
+                        return RoundCorner.CornerEnum.BottomRight;
                 }
                 size: Math.max(cornerSize, 1)
                 color: "white"

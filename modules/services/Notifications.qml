@@ -94,39 +94,39 @@ Singleton {
 
     component NotifTimer: Timer {
         required property int id
-        property int originalInterval: 5000
         property bool isPaused: false
         property real startTime: Date.now()
 
-        interval: originalInterval
-        running: !isPaused
+        property var suspendConnections: Connections {
+            target: SuspendManager
+            function onWakingUp() {
+                if (!isPaused) {
+                    // Small delay after wake to prevent popups appearing while screen is still transitioning
+                    wakeStartTimer.restart();
+                }
+            }
+        }
+
+        property var wakeStartTimer: Timer {
+            id: wakeStartTimer
+            interval: 1000
+            repeat: false
+            onTriggered: if (!isPaused)
+                parent.start()
+        }
+
+        running: !isPaused && !SuspendManager.isSuspending && interval > 0
+        onTriggered: root.timeoutNotification(id)
 
         function pause() {
-            if (!isPaused) {
-                isPaused = true;
-                stop();
-            }
+            isPaused = true;
+            stop();
         }
 
         function resume() {
-            if (isPaused) {
-                isPaused = false;
-                interval = originalInterval;
-                startTime = Date.now();
+            isPaused = false;
+            if (!SuspendManager.isSuspending && interval > 0) {
                 start();
-            }
-        }
-
-        function triggerTimeout() {
-            root.timeoutNotification(id);
-            destroy();
-        }
-
-        onTriggered: triggerTimeout()
-
-        onRunningChanged: {
-            if (running) {
-                startTime = Date.now();
             }
         }
     }
@@ -149,7 +149,7 @@ Singleton {
 
     FileView {
         id: notifFileView
-        path: Quickshell.dataPath("notifications.json")
+        path: Quickshell.cachePath("notifications.json")
         onLoaded: loadNotifications()
     }
 

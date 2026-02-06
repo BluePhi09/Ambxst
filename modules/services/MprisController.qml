@@ -4,13 +4,14 @@ pragma ComponentBehavior: Bound
 import QtQml.Models
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Services.Mpris
 import qs.config
 
 Singleton {
     id: root
-    property MprisPlayer trackedPlayer: null
+
+    // --- Properties ---
+    property var trackedPlayer: null
     property var filteredPlayers: {
         const filtered = Mpris.players.values.filter(player => {
             const dbusName = (player.dbusName || "").toLowerCase();
@@ -21,32 +22,27 @@ Singleton {
         });
         return filtered;
     }
-    property MprisPlayer activePlayer: trackedPlayer ?? filteredPlayers[0] ?? null
 
-    property string cacheFilePath: Quickshell.dataPath("lastPlayer.json")
+    property var activePlayer: trackedPlayer ? trackedPlayer : (filteredPlayers.length > 0 ? filteredPlayers[0] : null)
+    
     property bool isInitializing: true
     property string cachedDbusName: ""
-    property bool cacheFileReady: false
 
-    Process {
-        id: ensureCacheFile
-        running: true
-        command: ["bash", "-c", "mkdir -p \"$(dirname '" + root.cacheFilePath + "')\" && if [ ! -f '" + root.cacheFilePath + "' ]; then echo '{}' > '" + root.cacheFilePath + "'; fi"]
-        onExited: {
-            root.cacheFileReady = true
-            cacheFile.reload()
-        }
-    }
+    property bool isPlaying: activePlayer ? activePlayer.isPlaying : false
+    property bool canTogglePlaying: activePlayer ? activePlayer.canTogglePlaying : false
+    property bool canGoPrevious: activePlayer ? activePlayer.canGoPrevious : false
+    property bool canGoNext: activePlayer ? activePlayer.canGoNext : false
+    property bool canChangeVolume: activePlayer && activePlayer.volumeSupported && activePlayer.canControl
+    property bool loopSupported: activePlayer && activePlayer.loopSupported && activePlayer.canControl
+    property var loopState: activePlayer ? activePlayer.loopState : (typeof MprisLoopState !== 'undefined' ? MprisLoopState.None : 0)
+    property bool shuffleSupported: activePlayer && activePlayer.shuffleSupported && activePlayer.canControl
+    property bool hasShuffle: activePlayer ? activePlayer.shuffle : false
 
-    FileView {
-        id: cacheFile
-        path: root.cacheFileReady ? root.cacheFilePath : ""
-        onLoaded: root.loadLastPlayer()
-    }
-
+    // --- Handlers ---
     onFilteredPlayersChanged: {
         if (root.isInitializing && root.cachedDbusName && root.filteredPlayers.length > 0) {
-            for (const player of root.filteredPlayers) {
+            for (let i = 0; i < root.filteredPlayers.length; i++) {
+                const player = root.filteredPlayers[i];
                 if (player.dbusName === root.cachedDbusName) {
                     root.trackedPlayer = player;
                     root.isInitializing = false;
@@ -57,31 +53,34 @@ Singleton {
     }
 
     Component.onCompleted: {
-        cacheFile.reload();
+        root.cachedDbusName = StateService.get("lastPlayerDbusName", "");
+        if (StateService.initialized) {
+            root.loadLastPlayer();
+        }
     }
 
+    Connections {
+        target: StateService
+        function onStateLoaded() {
+            root.cachedDbusName = StateService.get("lastPlayerDbusName", "");
+            root.loadLastPlayer();
+        }
+    }
+
+    // --- Functions ---
     function loadLastPlayer() {
-        try {
-            const data = cacheFile.text();
-            if (!data) {
+        if (!root.cachedDbusName) {
+            root.isInitializing = false;
+            return;
+        }
+
+        for (let i = 0; i < root.filteredPlayers.length; i++) {
+            const player = root.filteredPlayers[i];
+            if (player.dbusName === root.cachedDbusName) {
+                root.trackedPlayer = player;
                 root.isInitializing = false;
                 return;
             }
-
-            const obj = JSON.parse(data);
-            if (obj && obj.dbusName) {
-                root.cachedDbusName = obj.dbusName;
-                for (const player of root.filteredPlayers) {
-                    if (player.dbusName === obj.dbusName) {
-                        root.trackedPlayer = player;
-                        root.isInitializing = false;
-                        return;
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn("Error loading last player:", e);
-            root.isInitializing = false;
         }
     }
 
@@ -89,18 +88,69 @@ Singleton {
         if (!root.trackedPlayer || root.isInitializing)
             return;
 
-        const data = JSON.stringify({
-            dbusName: root.trackedPlayer.dbusName
-        });
-
-        cacheFile.setText(data);
+        StateService.set("lastPlayerDbusName", root.trackedPlayer.dbusName);
     }
 
+    function togglePlaying() {
+        if (root.canTogglePlaying)
+            root.activePlayer.togglePlaying();
+    }
+
+    function previous() {
+        if (root.canGoPrevious) {
+            root.activePlayer.previous();
+        }
+    }
+
+    function next() {
+        if (root.canGoNext) {
+            root.activePlayer.next();
+        }
+    }
+
+    function setLoopState(loopState) {
+        if (root.loopSupported) {
+            root.activePlayer.loopState = loopState;
+        }
+    }
+
+    function setShuffle(shuffle) {
+        if (root.shuffleSupported) {
+            root.activePlayer.shuffle = shuffle;
+        }
+    }
+
+    function setActivePlayer(player) {
+        const targetPlayer = player ? player : (root.filteredPlayers.length > 0 ? root.filteredPlayers[0] : null);
+
+        root.trackedPlayer = targetPlayer;
+        root.saveLastPlayer();
+    }
+
+    function cyclePlayer(direction) {
+        const players = root.filteredPlayers;
+        if (players.length === 0)
+            return;
+
+        const currentIndex = players.indexOf(root.activePlayer);
+        let newIndex;
+
+        if (direction > 0) {
+            newIndex = (currentIndex + 1) % players.length;
+        } else {
+            newIndex = (currentIndex - 1 + players.length) % players.length;
+        }
+
+        root.trackedPlayer = players[newIndex];
+        root.saveLastPlayer();
+    }
+
+    // --- Components ---
     Instantiator {
         model: Mpris.players
 
         Connections {
-            required property MprisPlayer modelData
+            required property var modelData
             target: modelData
 
             Component.onCompleted: {
@@ -113,88 +163,25 @@ Singleton {
             }
 
             Component.onDestruction: {
-                if (root.trackedPlayer == null || !root.trackedPlayer.isPlaying) {
-                    for (const player of root.filteredPlayers) {
+                if (root.trackedPlayer === modelData) {
+                    for (let i = 0; i < root.filteredPlayers.length; i++) {
+                        const player = root.filteredPlayers[i];
                         if (player.playbackState.isPlaying) {
                             root.trackedPlayer = player;
                             break;
                         }
                     }
 
-                    if (trackedPlayer == null && root.filteredPlayers.length != 0) {
-                        trackedPlayer = root.filteredPlayers[0];
+                    if (root.trackedPlayer === modelData) {
+                        root.trackedPlayer = root.filteredPlayers.length > 0 ? root.filteredPlayers[0] : null;
                     }
                 }
             }
 
             function onPlaybackStateChanged() {
-            // Comentado para evitar cambio automático de player
-            // if (root.trackedPlayer !== modelData) root.trackedPlayer = modelData
+                // Comentado para evitar cambio automático de player
+                // if (root.trackedPlayer !== modelData) root.trackedPlayer = modelData
             }
         }
-    }
-
-    property bool isPlaying: this.activePlayer && this.activePlayer.isPlaying
-    property bool canTogglePlaying: this.activePlayer?.canTogglePlaying ?? false
-    function togglePlaying() {
-        if (this.canTogglePlaying)
-            this.activePlayer.togglePlaying();
-    }
-
-    property bool canGoPrevious: this.activePlayer?.canGoPrevious ?? false
-    function previous() {
-        if (this.canGoPrevious) {
-            this.activePlayer.previous();
-        }
-    }
-
-    property bool canGoNext: this.activePlayer?.canGoNext ?? false
-    function next() {
-        if (this.canGoNext) {
-            this.activePlayer.next();
-        }
-    }
-
-    property bool canChangeVolume: this.activePlayer && this.activePlayer.volumeSupported && this.activePlayer.canControl
-
-    property bool loopSupported: this.activePlayer && this.activePlayer.loopSupported && this.activePlayer.canControl
-    property var loopState: this.activePlayer?.loopState ?? MprisLoopState.None
-    function setLoopState(loopState) {
-        if (this.loopSupported) {
-            this.activePlayer.loopState = loopState;
-        }
-    }
-
-    property bool shuffleSupported: this.activePlayer && this.activePlayer.shuffleSupported && this.activePlayer.canControl
-    property bool hasShuffle: this.activePlayer?.shuffle ?? false
-    function setShuffle(shuffle) {
-        if (this.shuffleSupported) {
-            this.activePlayer.shuffle = shuffle;
-        }
-    }
-
-    function setActivePlayer(player) {
-        const targetPlayer = player ?? Mpris.players[0];
-
-        this.trackedPlayer = targetPlayer;
-        this.saveLastPlayer();
-    }
-
-    function cyclePlayer(direction) {
-        const players = root.filteredPlayers;
-        if (players.length === 0)
-            return;
-
-        const currentIndex = players.indexOf(this.activePlayer);
-        let newIndex;
-
-        if (direction > 0) {
-            newIndex = (currentIndex + 1) % players.length;
-        } else {
-            newIndex = (currentIndex - 1 + players.length) % players.length;
-        }
-
-        this.trackedPlayer = players[newIndex];
-        this.saveLastPlayer();
     }
 }

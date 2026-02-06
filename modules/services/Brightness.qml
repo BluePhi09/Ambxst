@@ -15,7 +15,7 @@ import QtQuick
 Singleton {
     id: root
 
-    signal brightnessChanged
+    signal brightnessChanged(real value, var screen)
 
     property var ddcMonitors: []
     readonly property list<BrightnessMonitor> monitors: Quickshell.screens.map(screen => monitorComp.createObject(root, {
@@ -23,6 +23,14 @@ Singleton {
         }))
 
     property bool syncBrightness: StateService.get("syncBrightness", false)
+
+    property var suspendConnections: Connections {
+        target: SuspendManager
+        function onWakingUp() {
+            // Re-initialize monitors on wake with a delay
+            ddcDetectTimer.restart();
+        }
+    }
 
     onSyncBrightnessChanged: {
         if (StateService.initialized) {
@@ -66,7 +74,19 @@ Singleton {
 
     onMonitorsChanged: {
         ddcMonitors = [];
-        ddcProc.running = true;
+        // Debounce detection to avoid multiple processes during wake/screen changes
+        ddcDetectTimer.restart();
+    }
+
+    Timer {
+        id: ddcDetectTimer
+        interval: 1000
+        repeat: false
+        onTriggered: {
+            if (!SuspendManager.isSuspending) {
+                ddcProc.running = true;
+            }
+        }
     }
 
     Process {
@@ -160,7 +180,7 @@ Singleton {
 
         onBrightnessChanged: {
             if (monitor.ready) {
-                root.brightnessChanged();
+                root.brightnessChanged(monitor.brightness, monitor.screen);
             }
         }
 
@@ -187,7 +207,7 @@ Singleton {
                     monitor.rawMaxBrightness = maxRaw;
                     monitor.brightness = currentRaw / monitor.rawMaxBrightness;
                     monitor.ready = true;
-                    root.brightnessChanged();
+                    root.brightnessChanged(monitor.brightness, monitor.screen);
                 }
             }
         }

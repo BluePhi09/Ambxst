@@ -28,7 +28,7 @@ Item {
 
         if (videoExts.includes(ext) || imageExts.includes(ext)) {
             const fileName = itemPath.substring(itemPath.lastIndexOf('/') + 1);
-            return Quickshell.dataDir + "/desktop_thumbnails/" + fileName + ".jpg";
+            return Quickshell.cacheDir + "/desktop_thumbnails/" + fileName + ".jpg";
         }
 
         return '';
@@ -114,12 +114,7 @@ Item {
                 anchors.centerIn: parent
                 width: Config.desktop.iconSize
                 height: Config.desktop.iconSize
-                sourceComponent: {
-                    if (root.hasThumbnail) {
-                        return normalIconComponent;
-                    }
-                    return Config.tintIcons ? tintedIconComponent : normalIconComponent;
-                }
+                sourceComponent: Config.tintIcons && !root.hasThumbnail ? tintedIconComponent : normalIconComponent
             }
         }
 

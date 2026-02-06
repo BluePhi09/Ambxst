@@ -25,7 +25,7 @@ FocusScope {
     property var activeFilters: []  // Lista de tipos de archivo seleccionados para filtrar
 
     // Configuración interna del grid
-    readonly property int gridColumns: 8
+    readonly property int gridColumns: 7
     readonly property int wallpaperMargin: 4
 
     // Array de elementos focusables para navegación cíclica
@@ -38,6 +38,13 @@ FocusScope {
             }
         },
         {
+            id: "tintCheckbox",
+            focusFunc: function () {
+                tintCheckboxContainer.keyboardNavigationActive = true;
+                tintCheckbox.forceActiveFocus();
+            }
+        },
+        {
             id: "schemeSelector",
             focusFunc: function () {
                 schemeSelector.openAndFocus();
@@ -46,7 +53,7 @@ FocusScope {
         {
             id: "filters",
             focusFunc: function () {
-                filterBar.focusFilters();
+                wallpapersFilterBar.focusFilters();
             }
         }
     ]
@@ -193,47 +200,107 @@ FocusScope {
         return wallpapers;
     }
 
-    // Scheme Selector posicionado absolutamente para que se superponga al expandirse
-    SchemeSelector {
-        id: schemeSelector
-        anchors.right: parent.right
-        anchors.top: parent.top
-        width: 200
-        z: 1000
-
-        onSchemeSelectorClosed: {
-            wallpapersTabRoot.focusSearch();
-        }
-
-        onEscapePressedOnScheme: {
-            wallpapersTabRoot.focusSearch();
-        }
-
-        onTabPressed: {
-            wallpapersTabRoot.focusNextElement();
-        }
-
-        onShiftTabPressed: {
-            wallpapersTabRoot.focusPreviousElement();
-        }
-    }
-
     ColumnLayout {
         anchors.fill: parent
         spacing: 8
 
         // Barra superior con OLED mode, búsqueda y scheme selector
-        Item {
+        RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: 48
+            spacing: 8
+            z: 1000 // Asegurar que el menú desplegable se dibuje por encima del resto del contenido
 
-            // OLED Mode a la izquierda
+            // Barra de búsqueda centrada
+            SearchInput {
+                id: wallpaperSearchInput
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
+                text: searchText
+                placeholderText: "Search wallpapers..."
+                iconText: ""
+                clearOnEscape: false
+                handleTabNavigation: true
+                disableCursorNavigation: true
+                radius: Styling.radius(4)
+
+                // Manejo de eventos de búsqueda y teclado.
+                onSearchTextChanged: text => {
+                    searchText = text;
+                    if (text.length > 0 && filteredWallpapers.length > 0) {
+                        setSelectedIndex(0);
+                    } else {
+                        setSelectedIndex(-1);
+                    }
+                }
+
+                onEscapePressed: {
+                    Visibilities.setActiveModule("");
+                }
+
+                onTabPressed: {
+                    focusNextElement();
+                }
+
+                onShiftTabPressed: {
+                    focusPreviousElement();
+                }
+
+                onDownPressed: {
+                    if (filteredWallpapers.length > 0) {
+                        if (selectedIndex < filteredWallpapers.length - 1) {
+                            let newIndex = selectedIndex + wallpapersTabRoot.gridColumns;
+                            if (newIndex >= filteredWallpapers.length) {
+                                newIndex = filteredWallpapers.length - 1;
+                            }
+                            setSelectedIndex(newIndex);
+                        } else if (selectedIndex === -1) {
+                            setSelectedIndex(0);
+                        }
+                    }
+                }
+                onUpPressed: {
+                    if (filteredWallpapers.length > 0) {
+                        if (selectedIndex === -1) {
+                            setSelectedIndex(0);
+                        } else if (selectedIndex >= wallpapersTabRoot.gridColumns) {
+                            setSelectedIndex(selectedIndex - wallpapersTabRoot.gridColumns);
+                        }
+                    }
+                }
+                onLeftPressed: {
+                    if (filteredWallpapers.length > 0) {
+                        if (selectedIndex === -1) {
+                            setSelectedIndex(0);
+                        } else if (selectedIndex > 0) {
+                            setSelectedIndex(selectedIndex - 1);
+                        }
+                    }
+                }
+                onRightPressed: {
+                    if (filteredWallpapers.length > 0) {
+                        if (selectedIndex < filteredWallpapers.length - 1) {
+                            setSelectedIndex(selectedIndex + 1);
+                        } else if (selectedIndex === -1) {
+                            setSelectedIndex(0);
+                        }
+                    }
+                }
+                onAccepted: {
+                    if (selectedIndex >= 0 && selectedIndex < filteredWallpapers.length) {
+                        let selectedWallpaper = filteredWallpapers[selectedIndex];
+                        if (selectedWallpaper && GlobalStates.wallpaperManager) {
+                            GlobalStates.wallpaperManager.setWallpaper(selectedWallpaper);
+                        }
+                    }
+                }
+            }
+
+            // OLED Mode
             Item {
                 id: oledCheckboxContainer
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                width: 200
-                height: 48
+                Layout.preferredWidth: 100
+                Layout.preferredHeight: 48
 
                 property bool keyboardNavigationActive: false
 
@@ -264,7 +331,7 @@ FocusScope {
 
                             Text {
                                 anchors.fill: parent
-                                text: "OLED Mode"
+                                text: "OLED"
                                 color: Colors.overSurface
                                 font.family: Config.theme.font
                                 font.pixelSize: Config.theme.fontSize
@@ -384,107 +451,177 @@ FocusScope {
                 }
             }
 
-            // Barra de búsqueda centrada
-            SearchInput {
-                id: wallpaperSearchInput
-                anchors.centerIn: parent
-                width: 400
-                text: searchText
-                placeholderText: "Search wallpapers..."
-                iconText: ""
-                clearOnEscape: false
-                handleTabNavigation: true
-                disableCursorNavigation: true
-                radius: Styling.radius(4)
+            // Tint Toggle a la derecha del search
+            Item {
+                id: tintCheckboxContainer
+                Layout.preferredWidth: 100
+                Layout.preferredHeight: 48
 
-                // Manejo de eventos de búsqueda y teclado.
-                onSearchTextChanged: text => {
-                    searchText = text;
-                    if (text.length > 0 && filteredWallpapers.length > 0) {
-                        setSelectedIndex(0);
-                    } else {
-                        setSelectedIndex(-1);
-                    }
-                }
+                property bool keyboardNavigationActive: false
 
-                onEscapePressed: {
-                    Visibilities.setActiveModule("");
-                }
+                StyledRect {
+                    variant: tintCheckboxContainer.keyboardNavigationActive && tintCheckbox.activeFocus ? "focus" : "pane"
+                    anchors.fill: parent
+                    radius: Styling.radius(4)
+                    opacity: 1.0
 
-                onTabPressed: {
-                    focusNextElement();
-                }
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        spacing: 4
 
-                onShiftTabPressed: {
-                    focusPreviousElement();
-                }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            color: Colors.background
+                            radius: Styling.radius(0)
 
-                onDownPressed: {
-                    if (filteredWallpapers.length > 0) {
-                        if (selectedIndex < filteredWallpapers.length - 1) {
-                            let newIndex = selectedIndex + wallpapersTabRoot.gridColumns;
-                            if (newIndex >= filteredWallpapers.length) {
-                                newIndex = filteredWallpapers.length - 1;
+                            Text {
+                                anchors.fill: parent
+                                text: "Tint"
+                                color: Colors.overSurface
+                                font.family: Config.theme.font
+                                font.pixelSize: Config.theme.fontSize
+                                font.weight: Font.Medium
+                                verticalAlignment: Text.AlignVCenter
+                                leftPadding: 8
                             }
-                            setSelectedIndex(newIndex);
-                        } else if (selectedIndex === -1) {
-                            setSelectedIndex(0);
                         }
-                    }
-                }
-                onUpPressed: {
-                    if (filteredWallpapers.length > 0) {
-                        if (selectedIndex === -1) {
-                            setSelectedIndex(0);
-                        } else if (selectedIndex >= wallpapersTabRoot.gridColumns) {
-                            setSelectedIndex(selectedIndex - wallpapersTabRoot.gridColumns);
-                        }
-                    }
-                }
-                onLeftPressed: {
-                    if (filteredWallpapers.length > 0) {
-                        if (selectedIndex === -1) {
-                            setSelectedIndex(0);
-                        } else if (selectedIndex > 0) {
-                            setSelectedIndex(selectedIndex - 1);
-                        }
-                    }
-                }
-                onRightPressed: {
-                    if (filteredWallpapers.length > 0) {
-                        if (selectedIndex < filteredWallpapers.length - 1) {
-                            setSelectedIndex(selectedIndex + 1);
-                        } else if (selectedIndex === -1) {
-                            setSelectedIndex(0);
-                        }
-                    }
-                }
-                onAccepted: {
-                    if (selectedIndex >= 0 && selectedIndex < filteredWallpapers.length) {
-                        let selectedWallpaper = filteredWallpapers[selectedIndex];
-                        if (selectedWallpaper && GlobalStates.wallpaperManager) {
-                            GlobalStates.wallpaperManager.setWallpaper(selectedWallpaper);
+
+                        Item {
+                            id: tintCheckbox
+                            Layout.preferredWidth: 40
+                            Layout.preferredHeight: 40
+
+                            property bool checked: GlobalStates.wallpaperManager ? GlobalStates.wallpaperManager.tintEnabled : false
+
+                            onActiveFocusChanged: {
+                                if (!activeFocus) {
+                                    tintCheckboxContainer.keyboardNavigationActive = false;
+                                }
+                            }
+
+                            Keys.onPressed: event => {
+                                if (event.key === Qt.Key_Tab) {
+                                    tintCheckboxContainer.keyboardNavigationActive = false;
+                                    if (event.modifiers & Qt.ShiftModifier) {
+                                        wallpapersTabRoot.focusPreviousElement();
+                                    } else {
+                                        wallpapersTabRoot.focusNextElement();
+                                    }
+                                    event.accepted = true;
+                                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                                    if (GlobalStates.wallpaperManager) {
+                                        GlobalStates.wallpaperManager.tintEnabled = !GlobalStates.wallpaperManager.tintEnabled;
+                                    }
+                                    event.accepted = true;
+                                } else if (event.key === Qt.Key_Escape) {
+                                    tintCheckboxContainer.keyboardNavigationActive = false;
+                                    focusSearch();
+                                    event.accepted = true;
+                                }
+                            }
+
+                            Item {
+                                anchors.fill: parent
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: Styling.radius(0)
+                                    color: Colors.background
+                                    visible: !tintCheckbox.checked
+                                }
+
+                                StyledRect {
+                                    variant: "primary"
+                                    anchors.fill: parent
+                                    radius: Styling.radius(0)
+                                    visible: tintCheckbox.checked
+                                    opacity: tintCheckbox.checked ? 1.0 : 0.0
+
+                                    Behavior on opacity {
+                                        enabled: Config.animDuration > 0
+                                        NumberAnimation {
+                                            duration: Config.animDuration / 2
+                                            easing.type: Easing.OutQuart
+                                        }
+                                    }
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: Icons.accept
+                                        color: Styling.srItem("primary")
+                                        font.family: Icons.font
+                                        font.pixelSize: 20
+                                        scale: tintCheckbox.checked ? 1.0 : 0.0
+
+                                        Behavior on scale {
+                                            enabled: Config.animDuration > 0
+                                            NumberAnimation {
+                                                duration: Config.animDuration / 2
+                                                easing.type: Easing.OutBack
+                                                easing.overshoot: 1.5
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (GlobalStates.wallpaperManager) {
+                                        GlobalStates.wallpaperManager.tintEnabled = !GlobalStates.wallpaperManager.tintEnabled;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            // Scheme Selector a la derecha (placeholder para el espacio)
+            // Spacer
+            // Item { Layout.fillWidth: true }
+
+            // Scheme Selector a la derecha
             Item {
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                width: 200
-                height: 48
+                Layout.preferredWidth: 200
+                Layout.preferredHeight: 48
+
+                SchemeSelector {
+                    id: schemeSelector
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    // No height set, allows expansion based on implicitHeight
+
+                    onSchemeSelectorClosed: {
+                        wallpapersTabRoot.focusSearch();
+                    }
+
+                    onEscapePressedOnScheme: {
+                        wallpapersTabRoot.focusSearch();
+                    }
+
+                    onTabPressed: {
+                        wallpapersTabRoot.focusNextElement();
+                    }
+
+                    onShiftTabPressed: {
+                        wallpapersTabRoot.focusPreviousElement();
+                    }
+                }
             }
         }
 
         // FilterBar centrada
         Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: filterBar.height
+            Layout.preferredHeight: wallpapersFilterBar.height
 
             FilterBar {
-                id: filterBar
+                id: wallpapersFilterBar
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: Math.min(implicitWidth, parent.width)
                 activeFilters: wallpapersTabRoot.activeFilters
@@ -756,14 +893,16 @@ FocusScope {
                             // Lazy loader que solo carga cuando el item está visible
                             Loader {
                                 anchors.fill: parent
-                                sourceComponent: wallpaperComponent
+                                sourceComponent: staticImageComponent
                                 property string sourceFile: modelData
+                                active: isInViewport
+                                asynchronous: true
 
                                 // Placeholder mientras carga
                                 Rectangle {
                                     anchors.fill: parent
                                     color: Colors.surface
-                                    visible: !parent.active
+                                    visible: !parent.active || parent.status !== Loader.Ready
 
                                     Text {
                                         anchors.centerIn: parent
@@ -842,23 +981,25 @@ FocusScope {
         id: staticImageComponent
         Image {
             source: {
-                if (!parent.sourceFile)
+                if (!parent.sourceFile || !GlobalStates.wallpaperManager)
                     return "";
 
-                // Usar thumbnail si está disponible, fallback a original
+                // Usar SOLAMENTE thumbnail, nunca el original (muy pesado)
                 var thumbnailPath = GlobalStates.wallpaperManager.getThumbnailPath(parent.sourceFile);
-                return thumbnailPath ? "file://" + thumbnailPath : "file://" + parent.sourceFile;
+                var version = GlobalStates.wallpaperManager.thumbnailsVersion;
+                return "file://" + thumbnailPath + "?v=" + version;
             }
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             smooth: true
-            cache: false // Evitar acumular cache innecesario
+            cache: true // El caché se invalida por el parámetro ?v=
+            sourceSize.width: wallpaperGridContainer.cellSize
+            sourceSize.height: wallpaperGridContainer.cellSize
 
-            // Fallback a imagen original si el thumbnail falla
+            // No hay fallback al original para evitar carga excesiva
             onStatusChanged: {
-                if (status === Image.Error && source.toString().includes("/by-shell/Ambxst/image_thumbnails/")) {
-                    console.log("Thumbnail failed, using original:", parent.sourceFile);
-                    source = "file://" + parent.sourceFile;
+                if (status === Image.Error) {
+                    // console.log("Thumbnail not ready yet for:", parent.sourceFile);
                 }
             }
         }

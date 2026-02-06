@@ -104,7 +104,6 @@ Button {
                         sourceSize.width: root.iconSize * 2
                         sourceSize.height: root.iconSize * 2
                         fillMode: Image.PreserveAspectFit
-                        visible: !Config.tintIcons
                     }
 
                     Tinted {
@@ -181,7 +180,7 @@ Button {
         if (appToplevel.toplevelCount === 0) {
             // Launch the app
             if (desktopEntry) {
-                desktopEntry.execute();
+                AppSearch.launchApp(desktopEntry);
             }
             return;
         }
@@ -203,7 +202,7 @@ Button {
             if (mouse.button === Qt.MiddleButton) {
                 // Launch new instance
                 if (root.desktopEntry) {
-                    root.desktopEntry.execute();
+                    AppSearch.launchApp(root.desktopEntry);
                 }
             } else if (mouse.button === Qt.RightButton) {
                 // Toggle pin

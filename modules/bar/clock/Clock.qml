@@ -20,11 +20,14 @@ Item {
     property bool vertical: bar.orientation === "vertical"
     property bool isHovered: false
     property bool layerEnabled: true
+    
+    property real radius: 0
+    property real startRadius: radius
+    property real endRadius: radius
 
     // Popup visibility state
     property bool popupOpen: clockPopup.isOpen
 
-    // Weather availability
     readonly property bool weatherAvailable: WeatherService.dataAvailable
 
     Layout.preferredWidth: vertical ? 36 : buttonBg.implicitWidth
@@ -40,6 +43,11 @@ Item {
         variant: root.popupOpen ? "primary" : "bg"
         anchors.fill: parent
         enableShadow: root.layerEnabled
+
+        topLeftRadius: root.vertical ? root.startRadius : root.startRadius
+        topRightRadius: root.vertical ? root.startRadius : root.endRadius
+        bottomLeftRadius: root.vertical ? root.endRadius : root.startRadius
+        bottomRightRadius: root.vertical ? root.endRadius : root.endRadius
 
         implicitWidth: vertical ? 36 : rowLayout.implicitWidth + 24
         implicitHeight: vertical ? columnLayout.implicitHeight + 24 : 36
@@ -174,7 +182,7 @@ Item {
                 variant: "popup"
                 radius: Styling.radius(8)
                 enableShadow: false
-                width: popupWrapper.width
+                width: 300 + 16 // Match popupWrapper width
                 height: calendarContent.height + 32
 
                 property date currentDate: new Date()
@@ -194,7 +202,7 @@ Item {
                 // Update date every minute
                 Timer {
                     interval: 60000
-                    running: true
+                    running: !SuspendManager.isSuspending
                     repeat: true
                     onTriggered: calendarWrapper.currentDate = new Date()
                 }
@@ -306,7 +314,7 @@ Item {
                 }
             }
 
-            // Wrapper StyledRect
+            // Weather Wrapper StyledRect
             StyledRect {
                 id: popupWrapper
                 variant: "popup"
@@ -592,6 +600,23 @@ Item {
                     }
                 }
             }
+
+            // Pomodoro Wrapper StyledRect
+            StyledRect {
+                id: pomodoroWrapper
+                variant: "popup"
+                radius: Styling.radius(8)
+                enableShadow: false
+                width: 300 + 16 // Match weather popup width
+                height: pomodoroWidget.height + 16
+
+                Pomodoro {
+                    id: pomodoroWidget
+                    anchors.centerIn: parent
+                    width: 300
+                    onRequestPopupOpen: clockPopup.open()
+                }
+            }
         }
     }
 
@@ -613,11 +638,12 @@ Item {
 
     Timer {
         interval: 1000
-        running: true
+        running: !SuspendManager.isSuspending
         repeat: true
         onTriggered: {
             var now = new Date();
-            var formatted = Qt.formatDateTime(now, "hh:mm");
+            var format = Config.bar.use12hFormat ? "h:mm ap" : "hh:mm";
+            var formatted = Qt.formatDateTime(now, format);
             var parts = formatted.split(":");
             root.currentTime = formatted;
             root.currentHours = parts[0];
@@ -634,7 +660,8 @@ Item {
 
     Component.onCompleted: {
         var now = new Date();
-        var formatted = Qt.formatDateTime(now, "hh:mm");
+        var format = Config.bar.use12hFormat ? "h:mm ap" : "hh:mm";
+        var formatted = Qt.formatDateTime(now, format);
         var parts = formatted.split(":");
         root.currentTime = formatted;
         root.currentHours = parts[0];

@@ -2,5 +2,7 @@
 
 var data = {
     "theme": "default",
-    "hoverRegionHeight": 8
+    "position": "top",
+    "hoverRegionHeight": 8,
+    "keepHidden": false
 }

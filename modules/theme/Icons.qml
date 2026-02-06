@@ -70,6 +70,7 @@ QtObject {
     readonly property string glassPlus: ""
     readonly property string circuitry: ""
     readonly property string robot: ""
+    readonly property string minusCircle: ""
 
     // Wi-Fi
     readonly property string wifiOff: ""
@@ -210,6 +211,8 @@ QtObject {
     readonly property string arrowsOutCardinal: ""
     readonly property string dotsThree: ""
     readonly property string dotsNine: ""
+    readonly property string heart: "\ue2a8"
+    readonly property string arrowSquareOut: "\ue5de"
     readonly property string circleHalf: ""
 
     readonly property string circle: ""
@@ -249,4 +252,15 @@ QtObject {
     readonly property string aperture: ""
     readonly property string magicWand: ""
     readonly property string google: ""
+
+    // Aliases for missing icons
+    readonly property string palette: paintBrush
+    readonly property string cornersOut: arrowsOut
+    readonly property string drop: sparkle
+    readonly property string arrowsOutSimple: arrowsOut
+    readonly property string squaresFour: layout
+    readonly property string mapPin: globe
+    readonly property string thermometer: temperature
+    readonly property string windowsLogo: terminalWindow
+    readonly property string frameCorners: crop
 }

@@ -26,6 +26,60 @@ WlSessionLockSurface {
     // Always transparent - blur background handles the visuals
     color: "transparent"
 
+    // Wallpaper background con Blur integrado
+    TintedWallpaper {
+        id: wallpaperBackground
+        anchors.fill: parent
+        z: 1
+        radius: 0
+        tintEnabled: GlobalStates.wallpaperManager ? GlobalStates.wallpaperManager.tintEnabled : false
+
+        property string lockscreenFramePath: {
+            if (!GlobalStates.wallpaperManager)
+                return "";
+            return GlobalStates.wallpaperManager.getLockscreenFramePath(GlobalStates.wallpaperManager.currentWallpaper);
+        }
+
+        source: lockscreenFramePath ? "file://" + lockscreenFramePath : ""
+
+        // Animación de opacidad (visibilidad)
+        opacity: startAnim ? 1 : 0
+        visible: true
+
+        Behavior on opacity {
+            enabled: Config.animDuration > 0
+            NumberAnimation {
+                duration: Config.animDuration * 2
+                easing.type: Easing.OutQuint
+            }
+        }
+
+        // Efecto de Blur y Zoom mediante capa
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            blurEnabled: true
+            blur: startAnim ? 1 : 0
+            blurMax: 64
+        }
+
+        // Zoom animation
+        property real zoomScale: startAnim ? 1.25 : 1.0
+        transform: Scale {
+            origin.x: wallpaperBackground.width / 2
+            origin.y: wallpaperBackground.height / 2
+            xScale: wallpaperBackground.zoomScale
+            yScale: wallpaperBackground.zoomScale
+        }
+
+        Behavior on zoomScale {
+            enabled: Config.animDuration > 0
+            NumberAnimation {
+                duration: Config.animDuration * 2
+                easing.type: Easing.OutExpo
+            }
+        }
+    }
+
     // Screen capture background (fondo absoluto con zoom sincronizado)
     ScreencopyView {
         id: screencopyBackground
@@ -43,80 +97,6 @@ WlSessionLockSurface {
             origin.y: screencopyBackground.height / 2
             xScale: screencopyBackground.zoomScale
             yScale: screencopyBackground.zoomScale
-        }
-
-        Behavior on zoomScale {
-            enabled: Config.animDuration > 0
-            NumberAnimation {
-                duration: Config.animDuration * 2
-                easing.type: Easing.OutExpo
-            }
-        }
-    }
-
-    // Wallpaper background (oculto - solo usado como source del MultiEffect)
-    Image {
-        id: wallpaperBackground
-        anchors.fill: parent
-        fillMode: Image.PreserveAspectCrop
-        asynchronous: true
-        smooth: true
-        visible: false  // Nunca visible directamente, solo a través del MultiEffect
-        z: 1
-
-        property string lockscreenFramePath: {
-            if (!GlobalStates.wallpaperManager)
-                return "";
-            return GlobalStates.wallpaperManager.getLockscreenFramePath(GlobalStates.wallpaperManager.currentWallpaper);
-        }
-
-        source: lockscreenFramePath ? "file://" + lockscreenFramePath : ""
-
-        onStatusChanged: {
-            if (status === Image.Ready) {
-                console.log("Lockscreen using wallpaper:", lockscreenFramePath);
-            } else if (status === Image.Error) {
-                console.warn("Failed to load lockscreen wallpaper:", lockscreenFramePath);
-            }
-        }
-    }
-
-    // Blur effect
-    MultiEffect {
-        id: blurEffect
-        anchors.fill: parent
-        source: wallpaperBackground
-        autoPaddingEnabled: false
-        blurEnabled: true
-        blur: startAnim ? 1 : 0
-        blurMax: 64
-        visible: true
-        opacity: startAnim ? 1 : 0
-        z: 2
-
-        property real zoomScale: startAnim ? 1.25 : 1.0
-
-        transform: Scale {
-            origin.x: blurEffect.width / 2
-            origin.y: blurEffect.height / 2
-            xScale: blurEffect.zoomScale
-            yScale: blurEffect.zoomScale
-        }
-
-        Behavior on blur {
-            enabled: Config.animDuration > 0
-            NumberAnimation {
-                duration: Config.animDuration * 2
-                easing.type: Easing.OutExpo
-            }
-        }
-
-        Behavior on opacity {
-            enabled: Config.animDuration > 0
-            NumberAnimation {
-                duration: Config.animDuration * 2
-                easing.type: Easing.OutQuint
-            }
         }
 
         Behavior on zoomScale {
@@ -170,6 +150,8 @@ WlSessionLockSurface {
         height: hoursText.height + (hoursText.height * 0.5)
         z: 10
 
+        property date currentTime: new Date()
+
         Row {
             id: clockRow
             spacing: 0
@@ -177,7 +159,7 @@ WlSessionLockSurface {
 
             Text {
                 id: hoursText
-                text: Qt.formatTime(new Date(), "hh")
+                text: Config.bar.use12hFormat ? (clockContainer.currentTime.getHours() % 12 || 12).toString() : Qt.formatTime(clockContainer.currentTime, "hh")
                 font.family: "League Gothic"
                 font.pixelSize: 240
                 color: Colors.primaryFixed
@@ -212,7 +194,7 @@ WlSessionLockSurface {
 
             Text {
                 id: minutesText
-                text: Qt.formatTime(new Date(), "mm")
+                text: Qt.formatTime(clockContainer.currentTime, "mm")
                 font.family: "League Gothic"
                 font.pixelSize: 240
                 color: Colors.primaryFixedDim
@@ -247,16 +229,51 @@ WlSessionLockSurface {
                     }
                 }
             }
+
+            Text {
+                id: amPmText
+                text: Config.bar.use12hFormat ? Qt.formatTime(clockContainer.currentTime, "ap").toLowerCase() : ""
+                font.family: "League Gothic"
+                font.pixelSize: 100
+                color: hoursText.color
+                antialiasing: true
+                anchors.top: hoursText.top
+                anchors.topMargin: hoursText.height * 0.35 
+                visible: Config.bar.use12hFormat
+                opacity: startAnim ? 1 : 0
+
+                property real slideOffset: startAnim ? 0 : -150
+
+                transform: Translate {
+                    y: amPmText.slideOffset
+                }
+
+                layer.enabled: true
+                layer.effect: BgShadow {}
+
+                Behavior on opacity {
+                    enabled: Config.animDuration > 0
+                    NumberAnimation {
+                        duration: Config.animDuration * 2
+                        easing.type: Easing.OutExpo
+                    }
+                }
+
+                Behavior on slideOffset {
+                    enabled: Config.animDuration > 0
+                    NumberAnimation {
+                        duration: Config.animDuration * 2
+                        easing.type: Easing.OutExpo
+                    }
+                }
+            }
         }
 
         Timer {
             interval: 1000
             running: true
             repeat: true
-            onTriggered: {
-                hoursText.text = Qt.formatTime(new Date(), "hh");
-                minutesText.text = Qt.formatTime(new Date(), "mm");
-            }
+            onTriggered: clockContainer.currentTime = new Date()
         }
     }
 

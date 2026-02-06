@@ -8,8 +8,11 @@ Rectangle {
     id: root
     required property string position
     
-    visible: Config.showBackground
+    readonly property bool effectiveContainBar: Config.bar.containBar && (Config.bar.frameEnabled ?? false)
+
+    visible: Config.showBackground && (!effectiveContainBar || Config.bar.keepBarShadow)
     color: "black"
+    radius: effectiveContainBar ? Styling.radius(4) : 0
 
     layer.enabled: true
     layer.smooth: true
@@ -29,7 +32,7 @@ Rectangle {
 
     RoundCorner {
         id: shadowCornerLeft
-        visible: Config.theme.enableCorners
+        visible: Config.theme.enableCorners && !effectiveContainBar
         size: Config.roundness > 0 ? Config.roundness + 4 : 0
         x: root.position === "left" ? parent.width : (root.position === "right" ? -size : 0)
         y: root.position === "top" ? parent.height : (root.position === "bottom" ? -size : 0)
@@ -44,7 +47,7 @@ Rectangle {
 
     RoundCorner {
         id: shadowCornerRight
-        visible: Config.theme.enableCorners
+        visible: Config.theme.enableCorners && !effectiveContainBar
         size: Config.roundness > 0 ? Config.roundness + 4 : 0
         x: root.position === "left" ? parent.width : (root.position === "right" ? -size : parent.width - size)
         y: root.position === "top" ? parent.height : (root.position === "bottom" ? -size : parent.height - size)

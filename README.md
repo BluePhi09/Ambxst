@@ -32,6 +32,10 @@ An <i><b>Ax</b>tremely</i> customizable shell.
   <img src="./assets/screenshots/5.png" width="32%" />
   <img src="./assets/screenshots/6.png" width="32%" />
   <img src="./assets/screenshots/7.png" width="32%" />
+
+  <img src="./assets/screenshots/8.png" width="32%" />
+  <img src="./assets/screenshots/9.png" width="32%" />
+  <img src="./assets/screenshots/10.png" width="32%" />
 </div>
 
 ---
@@ -121,11 +125,11 @@ I want to release this before the end of the year, so you'll have to wait a bit 
 
 For now, the most important things to know are:
 
-* The main configuration is located at `~/.config/Ambxst`
+* The main configuration is located at `~/.config/ambxst`
 * Removing Ambxst is as simple as:
 
   ```bash
-  nix profile remove Ambxst
+  ambxst goodbye
   ```
 * You can ask anything on the:
 
