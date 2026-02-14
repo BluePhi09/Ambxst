@@ -12,6 +12,7 @@ QtObject {
     signal monitorScreenshotReady(string monitorName, string path) // NEW: Signal for per-monitor readiness
     signal errorOccurred(string message)
     signal windowListReady(var windows)
+    signal monitorsListReady(var monitors)
     signal lensImageReady(string path)
     signal imageSaved(string path) // New signal for Overlay
 
@@ -113,6 +114,8 @@ QtObject {
                     
                     // Also fetch clients for window mode
                     clientsProcess.running = true
+
+                    root.monitorsListReady(rawMonitors)
                 } catch (e) {
                     console.warn("Screenshot: Failed to parse monitors: " + e.message)
                     root.errorOccurred("Failed to parse monitors")
@@ -168,10 +171,15 @@ QtObject {
 
     property Process copyProcess: Process {
         id: copyProcess
-        command: ["bash", "-c", `wl-copy < "${root.finalPath}"`]
+        command: ["bash", "-c", `cat "${root.finalPath}" | wl-copy --type image/png`]
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (text.length > 0) console.warn("Screenshot Copy Error: " + text)
+            }
+        }
         onExited: exitCode => {
             if (exitCode !== 0) {
-                console.warn("Failed to copy to clipboard")
+                console.warn("Failed to copy to clipboard (Exit code: " + exitCode + ")")
             }
         }
     }
@@ -217,15 +225,12 @@ QtObject {
         // Trigger freeze immediately
         root.executeFreezeBatch();
 
-        // Start fetching full metadata (workspaces) for Window Mode
-        monitorsProcess.running = true
+		root.fetchWindows();
     }
     
     function fetchWindows() {
-        // Just fetch clients for window mode, using cached workspace IDs if available
-        // If no IDs, maybe we should fetch monitors first? 
-        // For speed, let's assume if this is called, monitors were likely fetched during freeze.
-        clientsProcess.running = true
+        // Start fetching full metadata (workspaces) for Window Mode
+        monitorsProcess.running = true
     }
     
     function executeFreezeBatch() {
@@ -285,6 +290,16 @@ QtObject {
             m = root.monitors.find(mon => {
                 var logicalW = mon.width / mon.scale;
                 var logicalH = mon.height / mon.scale;
+
+				// When monitors are rotated, we use the height for width and vice versa
+				// 1 = 90 deg, 3 = 270 deg, 5 = 90 deg mirrored, 7 = 270 deg mirrored
+				// source: https://wiki.hypr.land/Configuring/Monitors/#rotating
+				// this way we select the correct monitor
+				if(mon.transform === 1 || mon.transform === 3 || mon.transform === 5 || mon.transform === 7) {
+					var logicalW  = mon.height / mon.scale;
+					var logicalH  = mon.width / mon.scale;
+				}
+
                 return x >= mon.x && x < (mon.x + logicalW) &&
                        y >= mon.y && y < (mon.y + logicalH);
             });

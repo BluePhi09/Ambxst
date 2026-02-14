@@ -4,6 +4,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.modules.globals
 
 Singleton {
     id: root
@@ -16,6 +17,20 @@ Singleton {
     property var lastScanTime: 0
     property bool wifiConnecting: isUpdating && wifiStatus === "connecting"
     property bool isUpdating: false
+    property bool wasEnabledBeforeSleep: false
+
+    property var suspendConnections: Connections {
+        target: SuspendManager
+        function onPreparingForSleep() {
+            root.wasEnabledBeforeSleep = root.wifiEnabled;
+        }
+        function onWakingUp() {
+            if (root.wasEnabledBeforeSleep) {
+                root.enableWifi(true);
+            }
+        }
+    }
+
     property WifiAccessPoint wifiConnectTarget: null
     readonly property list<WifiAccessPoint> wifiNetworks: []
     property WifiAccessPoint active: null
@@ -102,7 +117,7 @@ Singleton {
 
     function rescanWifi(): void {
         const now = Date.now();
-        if (now - lastScanTime < 10000) { // 10 seconds throttle
+        if (now - lastScanTime < 10000) { // 10s throttle
             getNetworks.running = true;
             return;
         }
@@ -163,7 +178,7 @@ Singleton {
         Quickshell.execDetached(["xdg-open", "https://nmcheck.gnome.org/"]);
     }
 
-    // Helper function for wifi icon based on strength
+    // WiFi icon by strength
     function wifiIconForStrength(strength: int): string {
         if (strength > 80) return Icons.wifiHigh;
         if (strength > 55) return Icons.wifiMedium;
@@ -172,7 +187,7 @@ Singleton {
         return Icons.wifiOff;
     }
 
-    // Status update
+    // Update status
     Timer {
         id: updateDebouncer
         interval: 200
@@ -186,11 +201,20 @@ Singleton {
 
     function performUpdate() {
         if (isUpdating) return;
+        
+        // Skip/delay updates if UI closed
+        // nmcli monitor is event-based; safe to run.
+        // Optimization: Only update signal strength when UI open
+        const uiOpen = GlobalStates.dashboardOpen || GlobalStates.launcherOpen || GlobalStates.overviewOpen;
+        
         isUpdating = true;
         updateConnectionType.startCheck();
         wifiStatusProcess.running = true;
         updateNetworkName.running = true;
-        updateNetworkStrength.running = true;
+        
+        if (uiOpen) {
+            updateNetworkStrength.running = true;
+        }
     }
 
     Process {
@@ -343,7 +367,7 @@ Singleton {
                 const wifiNetworksData = Array.from(networkMap.values());
                 const rNetworks = root.wifiNetworks;
 
-                // Sync current list with new data
+                // Sync with new data
                 // 1. Remove gone networks
                 for (let i = rNetworks.length - 1; i >= 0; i--) {
                     const rn = rNetworks[i];
@@ -354,7 +378,7 @@ Singleton {
                     }
                 }
 
-                // 2. Update existing or add new
+                // 2. Add/update networks
                 for (let i = 0; i < wifiNetworksData.length; i++) {
                     const data = wifiNetworksData[i];
                     const existing = rNetworks.find(n => n.frequency === data.frequency && n.ssid === data.ssid && n.bssid === data.bssid);

@@ -404,6 +404,7 @@ WlSessionLockSurface {
                     anchors.verticalCenter: parent.verticalCenter
 
                     Image {
+                        mipmap: true
                         id: userAvatar
                         anchors.fill: parent
                         source: `file://${Quickshell.env("HOME")}/.face.icon`
@@ -454,7 +455,7 @@ WlSessionLockSurface {
                         // User icon / Spinner
                         Text {
                             id: userIcon
-                            text: authenticating ? Icons.spinnerGap : Icons.user
+                            text: authenticating ? Icons.circleNotch : Icons.user
                             font.family: Icons.font
                             font.pixelSize: 24
                             color: passwordFieldBg.item

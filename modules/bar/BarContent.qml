@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import qs.modules.bar.workspaces
 import qs.modules.theme
 import qs.modules.bar.clock
@@ -31,13 +32,22 @@ Item {
     // Auto-hide properties
     property bool pinned: Config.bar?.pinnedOnStartup ?? true
 
-    // Fullscreen detection - check if active toplevel is fullscreen on this screen
+    // Monitor reference and refrence to toplevels on monitor
+    readonly property var hyprlandMonitor: Hyprland.monitorFor(screen)
+    readonly property var toplevels: hyprlandMonitor.activeWorkspace.toplevels.values
+
+    // Fullscreen detection - check if a toplevel is fullscreen on this screen
     readonly property bool activeWindowFullscreen: {
-        const toplevel = ToplevelManager.activeToplevel;
-        if (!toplevel || !toplevel.activated)
-            return false;
-        // Check if the toplevel is fullscreen
-        return toplevel.fullscreen === true;
+        if (!hyprlandMonitor || !toplevels) return false;
+
+        // Check all toplevels on active workspcace
+        for (var i = 0; i < toplevels.length; i++) {
+            // Checks first if the wayland handle is ready
+            if (toplevels[i].wayland && toplevels[i].wayland.fullscreen == true) {
+               return true;
+            }
+        }
+        return false;
     }
 
     // Whether auto-hide should be active (not pinned, or fullscreen forces it)
@@ -192,8 +202,8 @@ Item {
         hoverEnabled: true
 
         // Size includes margins
-        width: root.orientation === "horizontal" ? root.width : (root.reveal ? root.totalBarWidth : Math.max(Config.bar?.hoverRegionHeight ?? 8, 4) + root.frameOffset + barBg.displacement)
-        height: root.orientation === "vertical" ? root.height : (root.reveal ? root.totalBarHeight : Math.max(Config.bar?.hoverRegionHeight ?? 8, 4) + root.frameOffset + barBg.displacement)
+        width: root.orientation === "horizontal" ? root.width : (root.reveal ? root.totalBarWidth : Math.max(Config.bar?.hoverRegionHeight ?? 8, 4) + root.frameOffset)
+        height: root.orientation === "vertical" ? root.height : (root.reveal ? root.totalBarHeight : Math.max(Config.bar?.hoverRegionHeight ?? 8, 4) + root.frameOffset)
 
 
         // Position using x/y

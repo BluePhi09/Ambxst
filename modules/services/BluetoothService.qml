@@ -4,6 +4,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.modules.globals
 
 Singleton {
     id: root
@@ -22,10 +23,12 @@ Singleton {
     property var pendingInfoUpdates: []
     property bool isProcessingInfoQueue: false
     property bool isUpdating: false
+    property bool wasEnabledBeforeSleep: false
 
     property var suspendConnections: Connections {
         target: SuspendManager
         function onPreparingForSleep() {
+            root.wasEnabledBeforeSleep = root.enabled;
             if (discovering) {
                 root.stopDiscovery();
             }
@@ -35,6 +38,11 @@ Singleton {
         function onWakingUp() {
             // Re-sync status after wake
             wakeSyncTimer.restart();
+
+            // Restore state if it was enabled
+            if (root.wasEnabledBeforeSleep) {
+                root.setEnabled(true);
+            }
         }
     }
 
@@ -238,7 +246,8 @@ Singleton {
     Timer {
         id: updateTimer
         interval: 5000
-        running: root.enabled && !SuspendManager.isSuspending
+        // Only poll when interface is visible
+        running: root.enabled && !SuspendManager.isSuspending && (GlobalStates.dashboardOpen || GlobalStates.launcherOpen || GlobalStates.overviewOpen)
         repeat: true
         onTriggered: root.updateDevices()
     }
