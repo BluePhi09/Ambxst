@@ -255,8 +255,13 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
 
-        OSD {
-            targetScreen: modelData
+        Loader {
+            id: osdLoader
+            active: SuspendManager.wakeReady
+            required property ShellScreen modelData
+            sourceComponent: OSD {
+                targetScreen: osdLoader.modelData
+            }
         }
     }
 
@@ -269,16 +274,16 @@ ShellRoot {
     }
 
     // Force service init at startup
-    QtObject {
-        id: serviceInitializer
-
-        Component.onCompleted: {
-            // Trigger service creation
-            let _ = NightLightService.active;
-            _ = GameModeService.toggled;
-            _ = CaffeineService.inhibit;
-            _ = IdleService.lockCmd; // Force init
-            _ = GlobalShortcuts.appId; // Force init
-        }
-    }
+    // QtObject {
+    //     id: serviceInitializer
+    //
+    //     Component.onCompleted: {
+    //         // Trigger service creation
+    //         let _ = NightLightService.active;
+    //         _ = GameModeService.toggled;
+    //         _ = CaffeineService.inhibit;
+    //         _ = IdleService.lockCmd; // Force init
+    //         _ = GlobalShortcuts.appId; // Force init
+    //     }
+    // }
 }
