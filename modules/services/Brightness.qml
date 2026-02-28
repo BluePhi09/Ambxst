@@ -6,7 +6,7 @@ pragma ComponentBehavior: Bound
 
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
+import qs.modules.services
 import QtQuick
 
 /**
@@ -57,14 +57,14 @@ Singleton {
     }
 
     function increaseBrightness(): void {
-        const focusedName = Hyprland.focusedMonitor.name;
+        const focusedName = AxctlService.focusedMonitor.name;
         const monitor = monitors.find(m => focusedName === m.screen.name);
         if (monitor)
             monitor.setBrightness(monitor.brightness + 0.05);
     }
 
     function decreaseBrightness(): void {
-        const focusedName = Hyprland.focusedMonitor.name;
+        const focusedName = AxctlService.focusedMonitor.name;
         const monitor = monitors.find(m => focusedName === m.screen.name);
         if (monitor)
             monitor.setBrightness(monitor.brightness - 0.05);

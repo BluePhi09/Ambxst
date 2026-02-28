@@ -156,7 +156,7 @@ Singleton {
     property var systemTools: [
         {
             name: "run_shell_command",
-            description: "Execute a shell command on the user's system (Linux/Hyprland). Use this to list files, control the system, or run utilities. Output will be returned.",
+            description: "Execute a shell command on the user's system (Linux/AxctlService). Use this to list files, control the system, or run utilities. Output will be returned.",
             parameters: {
                 type: "OBJECT",
                 properties: {
