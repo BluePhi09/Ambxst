@@ -37,7 +37,8 @@ PanelWindow {
     property alias tintEnabled: wallpaperAdapter.tintEnabled
     property int thumbnailsVersion: 0
 
-    readonly property string mpvShaderDir: Quickshell.cacheDir + "/mpv_shaders"
+    // QUICKSHELL-GIT: readonly property string mpvShaderDir: Quickshell.cacheDir + "/mpv_shaders"
+    readonly property string mpvShaderDir: Quickshell.env("HOME") + "/.cache/ambxst" + "/mpv_shaders"
     property string mpvShaderPath: ""
     property bool mpvShaderReady: false
 
@@ -109,7 +110,8 @@ PanelWindow {
 
         var officialFile = officialColorPresetsDir + "/" + activeColorPreset + "/" + mode;
         var userFile = colorPresetsDir + "/" + activeColorPreset + "/" + mode;
-        var dest = Quickshell.cachePath("colors.json");
+        // QUICKSHELL-GIT: var dest = Quickshell.cachePath("colors.json");
+        var dest = Quickshell.env("HOME") + "/.cache/ambxst/colors.json";
 
         // Try official first, then user. Use bash conditional.
         var cmd = "if [ -f '" + officialFile + "' ]; then cp '" + officialFile + "' '" + dest + "'; else cp '" + userFile + "' '" + dest + "'; fi";
@@ -149,7 +151,8 @@ PanelWindow {
         var relativeDir = pathParts.join('/');
 
         // Build the proxy path
-        var thumbnailPath = Quickshell.cacheDir + "/thumbnails/" + relativeDir + "/" + thumbnailName;
+        // QUICKSHELL-GIT: var thumbnailPath = Quickshell.cacheDir + "/thumbnails/" + relativeDir + "/" + thumbnailName;
+        var thumbnailPath = Quickshell.env("HOME") + "/.cache/ambxst" + "/thumbnails/" + relativeDir + "/" + thumbnailName;
         return thumbnailPath;
     }
 
@@ -194,7 +197,8 @@ PanelWindow {
         // Para videos y GIFs, usar el frame cacheado
         if (fileType === 'video' || fileType === 'gif') {
             var fileName = filePath.split('/').pop();
-            var cachePath = Quickshell.cacheDir + "/lockscreen/" + fileName + ".jpg";
+            // QUICKSHELL-GIT: var cachePath = Quickshell.cacheDir + "/lockscreen/" + fileName + ".jpg";
+            var cachePath = Quickshell.env("HOME") + "/.cache/ambxst" + "/lockscreen/" + fileName + ".jpg";
             return cachePath;
         }
 
@@ -210,7 +214,8 @@ PanelWindow {
         console.log("Generating lockscreen frame for:", filePath);
 
         var scriptPath = decodeURIComponent(Qt.resolvedUrl("../../../../scripts/lockwall.py").toString().replace("file://", ""));
-        var dataPath = Quickshell.cacheDir;
+        // QUICKSHELL-GIT: var dataPath = Quickshell.cacheDir;
+        var dataPath = Quickshell.env("HOME") + "/.cache/ambxst";
 
         lockscreenWallpaperScript.command = ["python3", scriptPath, filePath, dataPath];
 
@@ -603,7 +608,8 @@ PanelWindow {
 
     FileView {
         id: wallpaperConfig
-        path: Quickshell.cachePath("wallpapers.json")
+        // QUICKSHELL-GIT: path: Quickshell.cachePath("wallpapers.json")
+        path: Quickshell.env("HOME") + "/.cache/ambxst/wallpapers.json"
         watchChanges: true
 
         onLoaded: {
@@ -694,7 +700,8 @@ PanelWindow {
     Process {
         id: checkWallpapersJson
         running: false
-        command: ["test", "-f", Quickshell.cachePath("wallpapers.json")]
+        // QUICKSHELL-GIT: command: ["test", "-f", Quickshell.cachePath("wallpapers.json")]
+        command: ["test", "-f", Quickshell.env("HOME") + "/.cache/ambxst/wallpapers.json"]
 
         onExited: function (exitCode) {
             if (exitCode !== 0) {
@@ -762,7 +769,8 @@ PanelWindow {
     Process {
         id: thumbnailGeneratorScript
         running: false
-        command: ["python3", decodeURIComponent(Qt.resolvedUrl("../../../../scripts/thumbgen.py").toString().replace("file://", "")), Quickshell.cacheDir + "/wallpapers.json", Quickshell.cacheDir, fallbackDir]
+        // QUICKSHELL-GIT: command: ["python3", decodeURIComponent(Qt.resolvedUrl("../../../../scripts/thumbgen.py").toString().replace("file://", "")), Quickshell.cacheDir + "/wallpapers.json", Quickshell.cacheDir, fallbackDir]
+        command: ["python3", decodeURIComponent(Qt.resolvedUrl("../../../../scripts/thumbgen.py").toString().replace("file://", "")), Quickshell.env("HOME") + "/.cache/ambxst" + "/wallpapers.json", Quickshell.env("HOME") + "/.cache/ambxst", fallbackDir]
 
         stdout: StdioCollector {
             onStreamFinished: {

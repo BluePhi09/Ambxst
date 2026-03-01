@@ -93,7 +93,8 @@ Item {
 
     FileView {
         id: wallpaperConfig
-        path: Quickshell.cachePath("wallpapers.json")
+        // QUICKSHELL-GIT: path: Quickshell.cachePath("wallpapers.json")
+        path: Quickshell.env("HOME") + "/.cache/ambxst/wallpapers.json"
 
         JsonAdapter {
             property string currentWall: ""

@@ -149,7 +149,8 @@ Singleton {
 
     FileView {
         id: notifFileView
-        path: Quickshell.cachePath("notifications.json")
+        // QUICKSHELL-GIT: path: Quickshell.cachePath("notifications.json")
+        path: Quickshell.env("HOME") + "/.cache/ambxst/notifications.json"
         onLoaded: loadNotifications()
     }
 

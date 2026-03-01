@@ -11,7 +11,8 @@ Singleton {
     readonly property string currentVersion: Config.version
     readonly property string repoUrl: "https://api.github.com/repos/Axenide/Ambxst/tags"
     readonly property string changelogUrl: "https://axeni.de/ambxst/changelog"
-    readonly property string cacheFile: Quickshell.cachePath("update_check.json")
+    // QUICKSHELL-GIT: readonly property string cacheFile: Quickshell.cachePath("update_check.json")
+    readonly property string cacheFile: Quickshell.env("HOME") + "/.cache/ambxst/update_check.json"
 
     property string lastDetectedVersion: ""
     property double lastCheckTime: 0
