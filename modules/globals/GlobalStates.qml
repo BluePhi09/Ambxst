@@ -515,4 +515,28 @@ Singleton {
             Config.pauseAutoSave = false;
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ASSISTANT SIDEBAR STATE
+    // ═══════════════════════════════════════════════════════════════
+    property bool assistantVisible: false
+    property bool assistantPinned: Config.ai.sidebarPinnedOnStartup ?? false
+    property int assistantWidth: Config.ai.sidebarWidth ?? 400
+    property string assistantPosition: Config.ai.sidebarPosition ?? "right"
+    property string assistantScreenName: ""
+
+    function toggleAssistant() {
+        assistantVisible = !assistantVisible;
+        if (assistantVisible) {
+            if (AxctlService.focusedMonitor) {
+                assistantScreenName = AxctlService.focusedMonitor.name;
+            }
+        }
+    }
+
+    function hideAssistant() {
+        assistantVisible = false;
+    }
+
+    property int settingsCurrentTab: 0
 }

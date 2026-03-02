@@ -11,6 +11,7 @@ import qs.modules.services
 import qs.modules.globals
 import qs.modules.components
 import qs.config
+import qs.modules.sidebar
 
 PanelWindow {
     id: unifiedPanel
@@ -29,7 +30,15 @@ PanelWindow {
 
     // Dynamic keyboard focus: Exclusive when a notch module is open (so text fields work),
     // None otherwise (so compositor receives normal input).
-    WlrLayershell.keyboardFocus: notchContent.screenNotchOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: {
+        if (notchContent.screenNotchOpen) {
+            return WlrKeyboardFocus.Exclusive;
+        }
+        if (assistantSidebar.active) {
+            return WlrKeyboardFocus.OnDemand;
+        }
+        return WlrKeyboardFocus.None;
+    }
     WlrLayershell.namespace: "ambxst"
     WlrLayershell.layer: WlrLayer.Overlay
     exclusionMode: ExclusionMode.Ignore
@@ -151,6 +160,9 @@ PanelWindow {
             Region {
                 // Only include the dock hitbox if the dock is actually enabled and visible on this screen.
                 item: dockContent.visible ? dockContent.dockHitbox : null
+            },
+            Region {
+                item: assistantSidebar.hitbox.visible ? assistantSidebar.hitbox : null
             }
         ]
     }
@@ -225,6 +237,12 @@ PanelWindow {
             anchors.fill: parent
             screen: unifiedPanel.targetScreen
             z: 4
+        }
+
+        AssistantSidebar {
+            id: assistantSidebar
+            targetScreen: unifiedPanel.targetScreen
+            z: 5
         }
     }
 }

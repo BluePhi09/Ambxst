@@ -370,7 +370,7 @@ install_python_tools() {
 	}
 
 	log_info "Installing Python tools..."
-	pipx install "litellm[proxy]" --python 3.12 2>/dev/null || true
+
 	pipx ensurepath 2>/dev/null || true
 }
 

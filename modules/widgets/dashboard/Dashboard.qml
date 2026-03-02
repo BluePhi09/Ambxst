@@ -10,7 +10,6 @@ import qs.modules.notch
 import qs.modules.widgets.dashboard.widgets
 import qs.modules.widgets.dashboard.controls
 import qs.modules.widgets.dashboard.wallpapers
-import qs.modules.widgets.dashboard.assistant
 import qs.modules.widgets.dashboard.metrics
 import qs.config
 
@@ -23,7 +22,7 @@ NotchAnimationBehavior {
         property int currentTab: GlobalStates.dashboardCurrentTab
     }
 
-    readonly property var tabModel: [Icons.widgets, Icons.wallpapers, Icons.heartbeat, Icons.assistant]
+    readonly property var tabModel: [Icons.widgets, Icons.wallpapers, Icons.heartbeat]
     readonly property int tabCount: tabModel.length
     readonly property int tabSpacing: 8
 
@@ -190,10 +189,10 @@ NotchAnimationBehavior {
 
                 // Calcular posición Y para un índice dado
                 function getYForIndex(idx) {
-                    if (idx <= 3) {
+                    if (idx <= 2) {
                         return idx * (width + root.tabSpacing);
                     } else {
-                        // Tab 4 (controls) está en la parte inferior
+                        // Controls button at the bottom
                         return controlsButtonContainer.y;
                     }
                 }
@@ -448,13 +447,6 @@ NotchAnimationBehavior {
                     sourceComponent: metricsComponent
                     z: visible ? 1 : 0
                 }
-
-                // Tab 3: Assistant
-                TabLoader {
-                    property int index: 3
-                    sourceComponent: assistantComponent
-                    z: visible ? 1 : 0
-                }
                 
                 // Helper to access current item for focus
                 property var currentItem: {
@@ -462,7 +454,6 @@ NotchAnimationBehavior {
                         case 0: return children[0].item;
                         case 1: return children[1].item;
                         case 2: return children[2].item;
-                        case 3: return children[3].item;
                         default: return null;
                     }
                 }
@@ -577,11 +568,6 @@ NotchAnimationBehavior {
         WidgetsTab {
             leftPanelWidth: root.leftPanelWidth
         }
-    }
-
-    Component {
-        id: assistantComponent
-        AssistantTab {}
     }
 
     Component {
