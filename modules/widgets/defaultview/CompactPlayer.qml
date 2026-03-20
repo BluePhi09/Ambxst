@@ -5,7 +5,6 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Widgets
-import Quickshell.Hyprland
 import Quickshell.Services.Mpris
 import qs.modules.theme
 import qs.modules.bar.workspaces
@@ -37,9 +36,9 @@ Item {
     }
 
     readonly property string focusedTitle: {
-        const activeWsId = Hyprland.focusedMonitor?.activeWorkspace?.id;
+        const activeWsId = AxctlService.focusedMonitor?.activeWorkspace?.id;
         if (!activeWsId) return "";
-        const windows = HyprlandData.workspaceWindowsMap[activeWsId] || [];
+        const windows = CompositorData.workspaceWindowsMap[activeWsId] || [];
         if (windows.length === 0) return "";
         const best = windows.reduce((best, win) => {
             const bestFocus = best?.focusHistoryID ?? Infinity;
@@ -76,7 +75,7 @@ Item {
     readonly property string noMediaText: {
         const displayType = Config.notch.noMediaDisplay ?? "userHost";
         if (displayType === "userHost") return userHostText;
-        if (displayType === "compositor") return "Hyprland";
+        if (displayType === "compositor") return "AxctlService";
         return Config.notch.customText ?? "Ambxst";
     }
 

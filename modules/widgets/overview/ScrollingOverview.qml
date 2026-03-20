@@ -3,7 +3,6 @@ import QtQuick.Controls
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import qs.modules.globals
 import qs.modules.theme
 import qs.modules.bar.workspaces
@@ -24,9 +23,9 @@ Item {
 
     // Monitor info
     property var currentScreen: null
-    readonly property var monitor: currentScreen ? Hyprland.monitorFor(currentScreen) : Hyprland.focusedMonitor
+    readonly property var monitor: currentScreen ? AxctlService.monitorFor(currentScreen) : AxctlService.focusedMonitor
     readonly property int monitorId: monitor?.id ?? -1
-    readonly property var monitors: HyprlandData.monitors
+    readonly property var monitors: CompositorData.monitors
     readonly property var monitorData: monitors.find(m => m.id === monitorId) ?? null
 
     readonly property string barPosition: Config.bar.position
@@ -35,10 +34,10 @@ Item {
     readonly property int barReserved: isBarPinned ? (Config.showBackground ? 44 : 40) : 0
 
     // Window data
-    readonly property var windowList: HyprlandData.windowList
+    readonly property var windowList: CompositorData.windowList
 
     // Focused window address for centering
-    readonly property string focusedWindowAddress: Hyprland.focusedClient?.address ?? ""
+    readonly property string focusedWindowAddress: AxctlService.focusedClient?.address ?? ""
 
     // Search functionality
     property string searchQuery: ""
@@ -125,7 +124,7 @@ Item {
             return;
         Visibilities.setActiveModule("", true);
         Qt.callLater(() => {
-            Hyprland.dispatch(`focuswindow address:${win.address}`);
+            AxctlService.dispatch(`focuswindow address:${win.address}`);
         });
     }
 

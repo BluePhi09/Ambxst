@@ -105,7 +105,7 @@ StyledRect {
 
                     contentItem: Text {
                         text: root.getLayoutIcon(modelData)
-                        color: GlobalStates.hyprlandLayout === modelData ? Styling.srItem("primary") : Colors.overBackground
+                        color: GlobalStates.compositorLayout === modelData ? Styling.srItem("primary") : Colors.overBackground
                         font.family: Icons.font
                         font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
@@ -121,7 +121,7 @@ StyledRect {
                     }
 
                     onClicked: {
-                        GlobalStates.setHyprlandLayout(modelData);
+                        GlobalStates.setCompositorLayout(modelData);
                     }
 
                     StyledToolTip {
@@ -159,7 +159,7 @@ StyledRect {
 
                     contentItem: Text {
                         text: root.getLayoutIcon(modelData)
-                        color: GlobalStates.hyprlandLayout === modelData ? Styling.srItem("primary") : Colors.overBackground
+                        color: GlobalStates.compositorLayout === modelData ? Styling.srItem("primary") : Colors.overBackground
                         font.family: Icons.font
                         font.pixelSize: 18
                         horizontalAlignment: Text.AlignHCenter
@@ -175,7 +175,7 @@ StyledRect {
                     }
 
                     onClicked: {
-                        GlobalStates.setHyprlandLayout(modelData);
+                        GlobalStates.setCompositorLayout(modelData);
                     }
 
                     StyledToolTip {

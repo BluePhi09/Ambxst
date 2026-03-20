@@ -55,7 +55,7 @@ Item {
                             icon: Icons.popOpen,
                             tooltip: "Open PipeWire Volume Control",
                             onClicked: function () {
-                                Quickshell.execDetached(["pwvucontrol"]);
+                                Quickshell.execDetached(["pavucontrol"]);
                             }
                         }
                     ]
@@ -69,17 +69,17 @@ Item {
                             id: outputBtn
                             property bool isSelected: root.showOutput
                             property bool isHovered: false
-                            
+
                             variant: isSelected ? "primary" : (isHovered ? "focus" : "common")
                             Layout.preferredHeight: 32
                             Layout.preferredWidth: outputContent.width + 24
                             radius: isSelected ? Styling.radius(-4) : Styling.radius(0)
-                            
+
                             Row {
                                 id: outputContent
                                 anchors.centerIn: parent
                                 spacing: 8
-                                
+
                                 Text {
                                     text: Icons.speakerHigh
                                     font.family: Icons.font
@@ -87,7 +87,7 @@ Item {
                                     color: outputBtn.item
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
-                                
+
                                 Text {
                                     text: "Output"
                                     font.family: Config.theme.font
@@ -97,7 +97,7 @@ Item {
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
-                            
+
                             MouseArea {
                                 anchors.fill: parent
                                 hoverEnabled: true
@@ -113,17 +113,17 @@ Item {
                             id: inputBtn
                             property bool isSelected: !root.showOutput
                             property bool isHovered: false
-                            
+
                             variant: isSelected ? "primary" : (isHovered ? "focus" : "common")
                             Layout.preferredHeight: 32
                             Layout.preferredWidth: inputContent.width + 24
                             radius: isSelected ? Styling.radius(-4) : Styling.radius(0)
-                            
+
                             Row {
                                 id: inputContent
                                 anchors.centerIn: parent
                                 spacing: 8
-                                
+
                                 Text {
                                     text: Icons.mic
                                     font.family: Icons.font
@@ -131,7 +131,7 @@ Item {
                                     color: inputBtn.item
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
-                                
+
                                 Text {
                                     text: "Input"
                                     font.family: Config.theme.font
@@ -141,7 +141,7 @@ Item {
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
-                            
+
                             MouseArea {
                                 anchors.fill: parent
                                 hoverEnabled: true

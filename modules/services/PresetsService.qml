@@ -21,6 +21,9 @@ Singleton {
     readonly property string assetsPresetsDir: Qt.resolvedUrl("../../assets/presets").toString().replace("file://", "")
     readonly property string activePresetFile: presetsDir + "/active_preset"
 
+    // Files to exclude from presets (never saved, loaded, or shown)
+    readonly property var excludedFiles: ["system.json", "ai.json", "prefix.json", "weather.json"]
+
     // Signal when presets change
     signal presetsUpdated()
 
@@ -67,7 +70,7 @@ Singleton {
         
         for (const configFile of preset.configFiles) {
              const jsonFile = configFile.replace('.js', '.json')
-             if (jsonFile === 'system.json') continue; // Skip system.json
+             if (root.excludedFiles.includes(jsonFile)) continue;
 
              const srcPath = presetPath + "/" + jsonFile
              const dstPath = configDir + "/config/" + jsonFile
@@ -112,7 +115,7 @@ Singleton {
         let copyCmd = ""
         for (const configFile of configFiles) {
             const jsonFile = configFile.replace('.js', '.json')
-            if (jsonFile === 'system.json') continue; // Skip system.json
+            if (root.excludedFiles.includes(jsonFile)) continue;
 
             // The source is configDir (~/.config/Ambxst), NOT configDir/config
             // But wait, the configDir property is defined as ~/.config/Ambxst below?
@@ -154,9 +157,9 @@ Singleton {
     Process {
         id: scanProcess
         // Find all JSON files in subdirectories of presetsDir (depth 2) and assetsPresetsDir
-        // Exclude system.json and info.json from the file list
+        // Exclude info.json and all excludedFiles from the file list
         // Then, read info.json files content using grep
-        command: ["sh", "-c", "find '" + presetsDir + "' '" + assetsPresetsDir + "' -mindepth 2 -maxdepth 2 -name '*.json' -not -name 'info.json' -not -name 'system.json'; echo '---METADATA---'; find '" + presetsDir + "' '" + assetsPresetsDir + "' -mindepth 2 -maxdepth 2 -name 'info.json' -exec grep -H . {} +"]
+        command: ["sh", "-c", "find '" + presetsDir + "' '" + assetsPresetsDir + "' -mindepth 2 -maxdepth 2 -name '*.json' -not -name 'info.json' -not -name 'system.json' -not -name 'ai.json' -not -name 'prefix.json' -not -name 'weather.json'; echo '---METADATA---'; find '" + presetsDir + "' '" + assetsPresetsDir + "' -mindepth 2 -maxdepth 2 -name 'info.json' -exec grep -H . {} +"]
         running: false
 
         stdout: StdioCollector {
@@ -311,7 +314,7 @@ Singleton {
         let copyCmd = ""
         for (const configFile of configFiles) {
             const jsonFile = configFile.replace('.js', '.json')
-            if (jsonFile === 'system.json') continue; // Skip system.json
+            if (root.excludedFiles.includes(jsonFile)) continue;
             const srcPath = configDir + "/config/" + jsonFile
             const dstPath = presetPath + "/" + jsonFile
             copyCmd += `cp "${srcPath}" "${dstPath}" && `
@@ -509,8 +512,11 @@ Singleton {
         }
     }
 
-    // Initialize
-    Component.onCompleted: {
+    property bool _initialized: false
+
+    function initialize() {
+        if (_initialized) return;
+        _initialized = true;
         console.log("PresetsService created, presetsDir:", presetsDir)
         initProcess.running = true
     }

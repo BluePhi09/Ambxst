@@ -11,7 +11,7 @@ import "defaults/bar.js" as BarDefaults
 import "defaults/workspaces.js" as WorkspacesDefaults
 import "defaults/overview.js" as OverviewDefaults
 import "defaults/notch.js" as NotchDefaults
-import "defaults/hyprland.js" as HyprlandDefaults
+import "defaults/compositor.js" as CompositorDefaults
 import "defaults/performance.js" as PerformanceDefaults
 import "defaults/weather.js" as WeatherDefaults
 import "defaults/desktop.js" as DesktopDefaults
@@ -44,7 +44,7 @@ Singleton {
     property bool workspacesReady: false
     property bool overviewReady: false
     property bool notchReady: false
-    property bool hyprlandReady: false
+    property bool compositorReady: false
     property bool performanceReady: false
     property bool weatherReady: false
     property bool desktopReady: false
@@ -55,7 +55,7 @@ Singleton {
     property bool aiReady: false
     property bool keybindsInitialLoadComplete: false
 
-    property bool initialLoadComplete: themeReady && barReady && workspacesReady && overviewReady && notchReady && hyprlandReady && performanceReady && weatherReady && desktopReady && lockscreenReady && prefixReady && systemReady && dockReady && aiReady
+    property bool initialLoadComplete: themeReady && barReady && workspacesReady && overviewReady && notchReady && compositorReady && performanceReady && weatherReady && desktopReady && lockscreenReady && prefixReady && systemReady && dockReady && aiReady
 
     // Compatibility aliases
     property alias loader: themeLoader
@@ -64,128 +64,35 @@ Singleton {
     // ============================================
     // BATCH INITIALIZATION
     // ============================================
-    // Batch config check
+    // Ensure config directory exists (pure mkdir, no file checks)
     Process {
-        id: initConfigs
+        id: ensureConfigDir
         running: true
-        command: ["bash", "-c", `
-            mkdir -p "${root.configDir}"
-            cd "${root.configDir}"
-            MISSING=""
-            [ ! -f theme.json ] && MISSING="$MISSING theme"
-            [ ! -f bar.json ] && MISSING="$MISSING bar"
-            [ ! -f workspaces.json ] && MISSING="$MISSING workspaces"
-            [ ! -f overview.json ] && MISSING="$MISSING overview"
-            [ ! -f notch.json ] && MISSING="$MISSING notch"
-            [ ! -f hyprland.json ] && MISSING="$MISSING hyprland"
-            [ ! -f performance.json ] && MISSING="$MISSING performance"
-            [ ! -f weather.json ] && MISSING="$MISSING weather"
-            [ ! -f desktop.json ] && MISSING="$MISSING desktop"
-            [ ! -f lockscreen.json ] && MISSING="$MISSING lockscreen"
-            [ ! -f prefix.json ] && MISSING="$MISSING prefix"
-            [ ! -f system.json ] && MISSING="$MISSING system"
-            [ ! -f dock.json ] && MISSING="$MISSING dock"
-            [ ! -f ai.json ] && MISSING="$MISSING ai"
-            echo "$MISSING"
-        `]
+        command: ["mkdir", "-p", root.configDir]
+    }
 
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const missing = text.trim().split(" ");
-                if (missing.includes("theme")) {
-                    console.log("theme.json missing, creating default...");
-                    themeRawLoader.setText(JSON.stringify(ThemeDefaults.data, null, 4));
-                    root.themeReady = true;
-                }
-                if (missing.includes("bar")) {
-                    console.log("bar.json missing, creating default...");
-                    barRawLoader.setText(JSON.stringify(BarDefaults.data, null, 4));
-                    root.barReady = true;
-                }
-                if (missing.includes("workspaces")) {
-                    console.log("workspaces.json missing, creating default...");
-                    workspacesRawLoader.setText(JSON.stringify(WorkspacesDefaults.data, null, 4));
-                    root.workspacesReady = true;
-                }
-                if (missing.includes("overview")) {
-                    console.log("overview.json missing, creating default...");
-                    overviewRawLoader.setText(JSON.stringify(OverviewDefaults.data, null, 4));
-                    root.overviewReady = true;
-                }
-                if (missing.includes("notch")) {
-                    console.log("notch.json missing, creating default...");
-                    notchRawLoader.setText(JSON.stringify(NotchDefaults.data, null, 4));
-                    root.notchReady = true;
-                }
-                if (missing.includes("hyprland")) {
-                    console.log("hyprland.json missing, creating default...");
-                    hyprlandRawLoader.setText(JSON.stringify(HyprlandDefaults.data, null, 4));
-                    root.hyprlandReady = true;
-                }
-                if (missing.includes("performance")) {
-                    console.log("performance.json missing, creating default...");
-                    performanceRawLoader.setText(JSON.stringify(PerformanceDefaults.data, null, 4));
-                    root.performanceReady = true;
-                }
-                if (missing.includes("weather")) {
-                    console.log("weather.json missing, creating default...");
-                    weatherRawLoader.setText(JSON.stringify(WeatherDefaults.data, null, 4));
-                    root.weatherReady = true;
-                }
-                if (missing.includes("desktop")) {
-                    console.log("desktop.json missing, creating default...");
-                    desktopRawLoader.setText(JSON.stringify(DesktopDefaults.data, null, 4));
-                    root.desktopReady = true;
-                }
-                if (missing.includes("lockscreen")) {
-                    console.log("lockscreen.json missing, creating default...");
-                    lockscreenRawLoader.setText(JSON.stringify(LockscreenDefaults.data, null, 4));
-                    root.lockscreenReady = true;
-                }
-                if (missing.includes("prefix")) {
-                    console.log("prefix.json missing, creating default...");
-                    prefixRawLoader.setText(JSON.stringify(PrefixDefaults.data, null, 4));
-                    root.prefixReady = true;
-                }
-                if (missing.includes("system")) {
-                    console.log("system.json missing, creating default...");
-                    systemRawLoader.setText(JSON.stringify(SystemDefaults.data, null, 4));
-                    root.systemReady = true;
-                }
-                if (missing.includes("dock")) {
-                    console.log("dock.json missing, creating default...");
-                    dockRawLoader.setText(JSON.stringify(DockDefaults.data, null, 4));
-                    root.dockReady = true;
-                }
-                if (missing.includes("ai")) {
-                    console.log("ai.json missing, creating default...");
-                    aiRawLoader.setText(JSON.stringify(AiDefaults.data, null, 4));
-                    root.aiReady = true;
-                }
-            }
-        }
+    // Auto-migrate hyprland.json → compositor.json for existing users
+    Process {
+        id: migrateCompositorConfig
+        running: true
+        command: ["bash", "-c", `test -f '${root.configDir}/hyprland.json' && ! test -f '${root.configDir}/compositor.json' && mv '${root.configDir}/hyprland.json' '${root.configDir}/compositor.json' && echo 'Migrated hyprland.json to compositor.json' || true`]
     }
 
     // ============================================
     // THEME MODULE
     // ============================================
     FileView {
-        id: themeRawLoader
-        path: root.configDir + "/theme.json"
-        onLoaded: {
-            if (!root.themeReady) {
-                validateModule("theme", themeRawLoader, ThemeDefaults.data, () => {
-                    root.themeReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: themeLoader
         path: root.configDir + "/theme.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.themeReady) {
+                validateModule("theme", themeLoader, ThemeDefaults.data, () => {
+                    root.themeReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -563,22 +470,17 @@ Singleton {
     // BAR MODULE
     // ============================================
     FileView {
-        id: barRawLoader
-        path: root.configDir + "/bar.json"
-        onLoaded: {
-            if (!root.barReady) {
-                validateModule("bar", barRawLoader, BarDefaults.data, () => {
-                    root.barReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: barLoader
         path: root.configDir + "/bar.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.barReady) {
+                validateModule("bar", barLoader, BarDefaults.data, () => {
+                    root.barReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -620,22 +522,17 @@ Singleton {
     // WORKSPACES MODULE
     // ============================================
     FileView {
-        id: workspacesRawLoader
-        path: root.configDir + "/workspaces.json"
-        onLoaded: {
-            if (!root.workspacesReady) {
-                validateModule("workspaces", workspacesRawLoader, WorkspacesDefaults.data, () => {
-                    root.workspacesReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: workspacesLoader
         path: root.configDir + "/workspaces.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.workspacesReady) {
+                validateModule("workspaces", workspacesLoader, WorkspacesDefaults.data, () => {
+                    root.workspacesReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -661,22 +558,17 @@ Singleton {
     // OVERVIEW MODULE
     // ============================================
     FileView {
-        id: overviewRawLoader
-        path: root.configDir + "/overview.json"
-        onLoaded: {
-            if (!root.overviewReady) {
-                validateModule("overview", overviewRawLoader, OverviewDefaults.data, () => {
-                    root.overviewReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: overviewLoader
         path: root.configDir + "/overview.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.overviewReady) {
+                validateModule("overview", overviewLoader, OverviewDefaults.data, () => {
+                    root.overviewReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -701,22 +593,17 @@ Singleton {
     // NOTCH MODULE
     // ============================================
     FileView {
-        id: notchRawLoader
-        path: root.configDir + "/notch.json"
-        onLoaded: {
-            if (!root.notchReady) {
-                validateModule("notch", notchRawLoader, NotchDefaults.data, () => {
-                    root.notchReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: notchLoader
         path: root.configDir + "/notch.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.notchReady) {
+                validateModule("notch", notchLoader, NotchDefaults.data, () => {
+                    root.notchReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -741,25 +628,20 @@ Singleton {
     }
 
     // ============================================
-    // HYPRLAND MODULE
+    // COMPOSITOR MODULE
     // ============================================
     FileView {
-        id: hyprlandRawLoader
-        path: root.configDir + "/hyprland.json"
+        id: compositorLoader
+        path: root.configDir + "/compositor.json"
+        atomicWrites: true
+        watchChanges: true
         onLoaded: {
-            if (!root.hyprlandReady) {
-                validateModule("hyprland", hyprlandRawLoader, HyprlandDefaults.data, () => {
-                    root.hyprlandReady = true;
+            if (!root.compositorReady) {
+                validateModule("compositor", compositorLoader, CompositorDefaults.data, () => {
+                    root.compositorReady = true;
                 });
             }
         }
-    }
-
-    FileView {
-        id: hyprlandLoader
-        path: root.configDir + "/hyprland.json"
-        atomicWrites: true
-        watchChanges: true
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -767,8 +649,8 @@ Singleton {
         }
         onPathChanged: reload()
         onAdapterUpdated: {
-            if (root.hyprlandReady && !root.pauseAutoSave) {
-                hyprlandLoader.writeAdapter();
+            if (root.compositorReady && !root.pauseAutoSave) {
+                compositorLoader.writeAdapter();
             }
         }
 
@@ -822,22 +704,17 @@ Singleton {
     // PERFORMANCE MODULE
     // ============================================
     FileView {
-        id: performanceRawLoader
-        path: root.configDir + "/performance.json"
-        onLoaded: {
-            if (!root.performanceReady) {
-                validateModule("performance", performanceRawLoader, PerformanceDefaults.data, () => {
-                    root.performanceReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: performanceLoader
         path: root.configDir + "/performance.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.performanceReady) {
+                validateModule("performance", performanceLoader, PerformanceDefaults.data, () => {
+                    root.performanceReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -864,22 +741,17 @@ Singleton {
     // WEATHER MODULE
     // ============================================
     FileView {
-        id: weatherRawLoader
-        path: root.configDir + "/weather.json"
-        onLoaded: {
-            if (!root.weatherReady) {
-                validateModule("weather", weatherRawLoader, WeatherDefaults.data, () => {
-                    root.weatherReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: weatherLoader
         path: root.configDir + "/weather.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.weatherReady) {
+                validateModule("weather", weatherLoader, WeatherDefaults.data, () => {
+                    root.weatherReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -902,22 +774,17 @@ Singleton {
     // DESKTOP MODULE
     // ============================================
     FileView {
-        id: desktopRawLoader
-        path: root.configDir + "/desktop.json"
-        onLoaded: {
-            if (!root.desktopReady) {
-                validateModule("desktop", desktopRawLoader, DesktopDefaults.data, () => {
-                    root.desktopReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: desktopLoader
         path: root.configDir + "/desktop.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.desktopReady) {
+                validateModule("desktop", desktopLoader, DesktopDefaults.data, () => {
+                    root.desktopReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -942,22 +809,17 @@ Singleton {
     // LOCKSCREEN MODULE
     // ============================================
     FileView {
-        id: lockscreenRawLoader
-        path: root.configDir + "/lockscreen.json"
-        onLoaded: {
-            if (!root.lockscreenReady) {
-                validateModule("lockscreen", lockscreenRawLoader, LockscreenDefaults.data, () => {
-                    root.lockscreenReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: lockscreenLoader
         path: root.configDir + "/lockscreen.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.lockscreenReady) {
+                validateModule("lockscreen", lockscreenLoader, LockscreenDefaults.data, () => {
+                    root.lockscreenReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -979,22 +841,17 @@ Singleton {
     // PREFIX MODULE
     // ============================================
     FileView {
-        id: prefixRawLoader
-        path: root.configDir + "/prefix.json"
-        onLoaded: {
-            if (!root.prefixReady) {
-                validateModule("prefix", prefixRawLoader, PrefixDefaults.data, () => {
-                    root.prefixReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: prefixLoader
         path: root.configDir + "/prefix.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.prefixReady) {
+                validateModule("prefix", prefixLoader, PrefixDefaults.data, () => {
+                    root.prefixReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -1020,22 +877,17 @@ Singleton {
     // SYSTEM MODULE
     // ============================================
     FileView {
-        id: systemRawLoader
-        path: root.configDir + "/system.json"
-        onLoaded: {
-            if (!root.systemReady) {
-                validateModule("system", systemRawLoader, SystemDefaults.data, () => {
-                    root.systemReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: systemLoader
         path: root.configDir + "/system.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.systemReady) {
+                validateModule("system", systemLoader, SystemDefaults.data, () => {
+                    root.systemReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -1100,22 +952,17 @@ Singleton {
     // DOCK MODULE
     // ============================================
     FileView {
-        id: dockRawLoader
-        path: root.configDir + "/dock.json"
-        onLoaded: {
-            if (!root.dockReady) {
-                validateModule("dock", dockRawLoader, DockDefaults.data, () => {
-                    root.dockReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: dockLoader
         path: root.configDir + "/dock.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.dockReady) {
+                validateModule("dock", dockLoader, DockDefaults.data, () => {
+                    root.dockReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -1152,25 +999,21 @@ Singleton {
     // Pinned apps (per-user)
     property bool pinnedAppsReady: false
 
-    Process {
-        id: checkPinnedAppsFile
-        running: true
-        command: ["test", "-f", Quickshell.dataPath("pinnedapps.json")]
-
-        onExited: exitCode => {
-            if (exitCode !== 0) {
-                console.log("pinnedapps.json not found, creating with default values...");
-                pinnedAppsLoader.writeAdapter();
-            }
-            root.pinnedAppsReady = true;
-        }
-    }
-
     FileView {
         id: pinnedAppsLoader
         path: Quickshell.dataPath("pinnedapps.json")
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.pinnedAppsReady) {
+                var raw = text();
+                if (!raw || raw.trim().length === 0) {
+                    console.log("pinnedapps.json not found, creating with default values...");
+                    pinnedAppsLoader.writeAdapter();
+                }
+                root.pinnedAppsReady = true;
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -1192,22 +1035,17 @@ Singleton {
     // AI MODULE
     // ============================================
     FileView {
-        id: aiRawLoader
-        path: root.configDir + "/ai.json"
-        onLoaded: {
-            if (!root.aiReady) {
-                validateModule("ai", aiRawLoader, AiDefaults.data, () => {
-                    root.aiReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
         id: aiLoader
         path: root.configDir + "/ai.json"
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.aiReady) {
+                validateModule("ai", aiLoader, AiDefaults.data, () => {
+                    root.aiReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -1224,49 +1062,27 @@ Singleton {
             property string systemPrompt: "You are a helpful assistant running on a Linux system. You have access to some tools to control the system."
             property string tool: "none"
             property list<var> extraModels: []
-            property string defaultModel: "gemini-pro"
+            property string defaultModel: "gemini-2.0-flash"
+            property int sidebarWidth: 400
+            property string sidebarPosition: "right"
+            property bool sidebarPinnedOnStartup: false
         }
     }
 
     // Keybinds (binds.json)
-    Process {
-        id: checkKeybindsFile
-        running: true
-        command: ["sh", "-c", "mkdir -p \"$(dirname '" + keybindsPath + "')\" && test -f \"" + keybindsPath + "\""]
-
-        onExited: exitCode => {
-            if (exitCode !== 0) {
-                console.log("binds.json not found, creating with default values...");
-                keybindsLoader.writeAdapter();
-            } else {
-                // File exists, check if it needs repair
-                repairKeybindsTimer.start();
-            }
-            root.keybindsInitialLoadComplete = true;
-        }
-    }
-
     // Timer to repair keybinds after initial load
     Timer {
         id: repairKeybindsTimer
         interval: 500
         repeat: false
         onTriggered: {
-            if (keybindsRawLoader.status === FileView.Ready) {
-                repairKeybinds();
-            }
+            repairKeybinds();
         }
-    }
-
-    // Binds repair loader
-    FileView {
-        id: keybindsRawLoader
-        path: keybindsPath
     }
 
     // Repair missing binds
     function repairKeybinds() {
-        const raw = keybindsRawLoader.text();
+        const raw = keybindsLoader.text();
         if (!raw) return;
 
         try {
@@ -1363,9 +1179,39 @@ Singleton {
                 }
             }
 
+            // Migrate compositor wrapper -> direct layouts (Phase C: compositor-agnostic)
+            if (current.custom && current.custom.length > 0) {
+                for (let i = 0; i < current.custom.length; i++) {
+                    const bind = current.custom[i];
+                    if (bind.actions) {
+                        for (let a = 0; a < bind.actions.length; a++) {
+                            const action = bind.actions[a];
+                            // Migrate compositor.layouts -> action.layouts
+                            if (action.compositor) {
+                                if (action.compositor.layouts && action.compositor.layouts.length > 0 && !action.layouts) {
+                                    action.layouts = action.compositor.layouts;
+                                }
+                                delete action.compositor;
+                                needsUpdate = true;
+                            }
+                            // Migrate hyprctl dispatch dpms -> axctl monitor set-dpms
+                            if (action.dispatcher === "exec" && action.argument) {
+                                if (action.argument === "hyprctl dispatch dpms off") {
+                                    action.argument = "axctl monitor set-dpms 0";
+                                    needsUpdate = true;
+                                } else if (action.argument === "hyprctl dispatch dpms on") {
+                                    action.argument = "axctl monitor set-dpms 1";
+                                    needsUpdate = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             if (needsUpdate) {
                 console.log("Auto-repairing binds.json: adding missing binds");
-                keybindsRawLoader.setText(JSON.stringify(current, null, 4));
+                keybindsLoader.setText(JSON.stringify(current, null, 4));
             }
         } catch (e) {
             console.warn("Failed to repair binds.json:", e);
@@ -1377,6 +1223,19 @@ Singleton {
         path: keybindsPath
         atomicWrites: true
         watchChanges: true
+        onLoaded: {
+            if (!root.keybindsInitialLoadComplete) {
+                var raw = text();
+                if (!raw || raw.trim().length === 0) {
+                    console.log("binds.json not found, creating with default values...");
+                    keybindsLoader.writeAdapter();
+                } else {
+                    // File exists, check if it needs repair
+                    repairKeybindsTimer.start();
+                }
+                root.keybindsInitialLoadComplete = true;
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -1420,31 +1279,34 @@ Singleton {
                                 "dispatcher": bind.dispatcher || "",
                                 "argument": bind.argument || "",
                                 "flags": bind.flags || "",
-                                "compositor": {
-                                    "type": "hyprland",
-                                    "layouts": []
-                                }
+                                "layouts": []
                             }
                         ],
                         "enabled": bind.enabled !== false
                     });
                 } else {
-                    // Check if actions need compositor field added
+                    // Check if actions need layouts field (previously compositor wrapper)
                     let actionsNeedUpdate = false;
                     let normalizedActions = [];
 
                     for (let a = 0; a < bind.actions.length; a++) {
                         let action = bind.actions[a];
-                        if (action.compositor === undefined) {
+                        if (action.compositor) {
+                            // Migrate old compositor wrapper to direct layouts
                             actionsNeedUpdate = true;
                             normalizedActions.push({
                                 "dispatcher": action.dispatcher || "",
                                 "argument": action.argument || "",
                                 "flags": action.flags || "",
-                                "compositor": {
-                                    "type": "hyprland",
-                                    "layouts": []
-                                }
+                                "layouts": (action.compositor.layouts && action.compositor.layouts.length > 0) ? action.compositor.layouts : []
+                            });
+                        } else if (action.layouts === undefined) {
+                            actionsNeedUpdate = true;
+                            normalizedActions.push({
+                                "dispatcher": action.dispatcher || "",
+                                "argument": action.argument || "",
+                                "flags": action.flags || "",
+                                "layouts": []
                             });
                         } else {
                             normalizedActions.push(action);
@@ -1466,7 +1328,7 @@ Singleton {
             }
 
             if (needsUpdate) {
-                console.log("Normalizing custom binds: migrating to new keys/actions/compositor format");
+                console.log("Normalizing custom binds: migrating to new keys/actions/layouts format");
                 adapter.custom = normalizedBinds;
             }
         }
@@ -1651,10 +1513,7 @@ Singleton {
                             "dispatcher": "killactive",
                             "argument": "",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1674,10 +1533,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "1",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1695,10 +1551,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "2",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1716,10 +1569,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "3",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1737,10 +1587,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "4",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1758,10 +1605,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "5",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1779,10 +1623,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "6",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1800,10 +1641,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "7",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1821,10 +1659,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "8",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1842,10 +1677,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "9",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1863,10 +1695,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "10",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1886,10 +1715,7 @@ Singleton {
                             "dispatcher": "movetoworkspace",
                             "argument": "1",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1907,10 +1733,7 @@ Singleton {
                             "dispatcher": "movetoworkspace",
                             "argument": "2",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1928,10 +1751,7 @@ Singleton {
                             "dispatcher": "movetoworkspace",
                             "argument": "3",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1949,10 +1769,7 @@ Singleton {
                             "dispatcher": "movetoworkspace",
                             "argument": "4",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1970,10 +1787,7 @@ Singleton {
                             "dispatcher": "movetoworkspace",
                             "argument": "5",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -1991,10 +1805,7 @@ Singleton {
                             "dispatcher": "movetoworkspace",
                             "argument": "6",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2012,10 +1823,7 @@ Singleton {
                             "dispatcher": "movetoworkspace",
                             "argument": "7",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2033,10 +1841,7 @@ Singleton {
                             "dispatcher": "movetoworkspace",
                             "argument": "8",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2054,10 +1859,7 @@ Singleton {
                             "dispatcher": "movetoworkspace",
                             "argument": "9",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2075,10 +1877,7 @@ Singleton {
                             "dispatcher": "movetoworkspace",
                             "argument": "10",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2098,10 +1897,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "e-1",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2119,10 +1915,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "e+1",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2140,10 +1933,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "e-1",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2161,10 +1951,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "e+1",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2182,10 +1969,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "-1",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2203,10 +1987,7 @@ Singleton {
                             "dispatcher": "workspace",
                             "argument": "+1",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2226,10 +2007,7 @@ Singleton {
                             "dispatcher": "movewindow",
                             "argument": "",
                             "flags": "m",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2247,10 +2025,7 @@ Singleton {
                             "dispatcher": "resizewindow",
                             "argument": "",
                             "flags": "m",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2270,10 +2045,7 @@ Singleton {
                             "dispatcher": "exec",
                             "argument": "playerctl play-pause",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2291,10 +2063,7 @@ Singleton {
                             "dispatcher": "exec",
                             "argument": "playerctl previous",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2312,10 +2081,7 @@ Singleton {
                             "dispatcher": "exec",
                             "argument": "playerctl next",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2333,10 +2099,7 @@ Singleton {
                             "dispatcher": "exec",
                             "argument": "playerctl play-pause",
                             "flags": "l",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2354,10 +2117,7 @@ Singleton {
                             "dispatcher": "exec",
                             "argument": "playerctl stop",
                             "flags": "l",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2377,10 +2137,7 @@ Singleton {
                             "dispatcher": "exec",
                             "argument": "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 10%+",
                             "flags": "le",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2398,10 +2155,7 @@ Singleton {
                             "dispatcher": "exec",
                             "argument": "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 10%-",
                             "flags": "le",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2419,10 +2173,7 @@ Singleton {
                             "dispatcher": "exec",
                             "argument": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
                             "flags": "le",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2442,10 +2193,7 @@ Singleton {
                             "dispatcher": "exec",
                             "argument": "ambxst brightness +5",
                             "flags": "le",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2463,10 +2211,7 @@ Singleton {
                             "dispatcher": "exec",
                             "argument": "ambxst brightness -5",
                             "flags": "le",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2486,10 +2231,7 @@ Singleton {
                             "dispatcher": "exec",
                             "argument": "notify-send \"Soon\"",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2509,10 +2251,7 @@ Singleton {
                             "dispatcher": "togglespecialworkspace",
                             "argument": "",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2530,10 +2269,7 @@ Singleton {
                             "dispatcher": "movetoworkspace",
                             "argument": "special",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2553,10 +2289,7 @@ Singleton {
                             "dispatcher": "exec",
                             "argument": "loginctl lock-session",
                             "flags": "l",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2572,12 +2305,9 @@ Singleton {
                     "actions": [
                         {
                             "dispatcher": "exec",
-                            "argument": "hyprctl dispatch dpms off",
+                            "argument": "axctl monitor set-dpms 0 0",
                             "flags": "l",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2593,12 +2323,9 @@ Singleton {
                     "actions": [
                         {
                             "dispatcher": "exec",
-                            "argument": "hyprctl dispatch dpms on",
+                            "argument": "axctl monitor set-dpms 0 1",
                             "flags": "l",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2622,19 +2349,13 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "focus u",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         },
                         {
                             "dispatcher": "movefocus",
                             "argument": "u",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["dwindle", "master"]
-                            }
+                            "layouts": ["dwindle", "master"]
                         }
                     ],
                     "enabled": true
@@ -2656,19 +2377,13 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "focus d",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         },
                         {
                             "dispatcher": "movefocus",
                             "argument": "d",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["master", "dwindle"]
-                            }
+                            "layouts": ["master", "dwindle"]
                         }
                     ],
                     "enabled": true
@@ -2694,19 +2409,13 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "focus l",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         },
                         {
                             "dispatcher": "movefocus",
                             "argument": "l",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["dwindle", "master"]
-                            }
+                            "layouts": ["dwindle", "master"]
                         }
                     ],
                     "enabled": true
@@ -2732,19 +2441,13 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "focus r",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         },
                         {
                             "dispatcher": "movefocus",
                             "argument": "r",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["master", "dwindle"]
-                            }
+                            "layouts": ["master", "dwindle"]
                         }
                     ],
                     "enabled": true
@@ -2768,19 +2471,13 @@ Singleton {
                             "dispatcher": "movewindow",
                             "argument": "l",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["master", "dwindle"]
-                            }
+                            "layouts": ["master", "dwindle"]
                         },
                         {
                             "dispatcher": "layoutmsg",
                             "argument": "movewindowto l",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -2802,19 +2499,13 @@ Singleton {
                             "dispatcher": "movewindow",
                             "argument": "r",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["dwindle", "master"]
-                            }
+                            "layouts": ["dwindle", "master"]
                         },
                         {
                             "dispatcher": "layoutmsg",
                             "argument": "movewindowto r",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -2836,19 +2527,13 @@ Singleton {
                             "dispatcher": "movewindow",
                             "argument": "u",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["master", "dwindle"]
-                            }
+                            "layouts": ["master", "dwindle"]
                         },
                         {
                             "dispatcher": "layoutmsg",
                             "argument": "movewindowto u",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -2870,19 +2555,13 @@ Singleton {
                             "dispatcher": "movewindow",
                             "argument": "d",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["master", "dwindle"]
-                            }
+                            "layouts": ["master", "dwindle"]
                         },
                         {
                             "dispatcher": "layoutmsg",
                             "argument": "movewindowto d",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2906,19 +2585,13 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "colresize +0.1",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         },
                         {
                             "dispatcher": "resizeactive",
                             "argument": "50 0",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["master", "dwindle"]
-                            }
+                            "layouts": ["master", "dwindle"]
                         }
                     ],
                     "enabled": true
@@ -2940,19 +2613,13 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "colresize -0.1",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         },
                         {
                             "dispatcher": "resizeactive",
                             "argument": "-50 0",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["master", "dwindle"]
-                            }
+                            "layouts": ["master", "dwindle"]
                         }
                     ],
                     "enabled": true
@@ -2974,10 +2641,7 @@ Singleton {
                             "dispatcher": "resizeactive",
                             "argument": "0 50",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -2999,10 +2663,7 @@ Singleton {
                             "dispatcher": "resizeactive",
                             "argument": "0 -50",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": []
-                            }
+                            "layouts": []
                         }
                     ],
                     "enabled": true
@@ -3022,10 +2683,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "promote",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3043,10 +2701,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "togglefit",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3064,10 +2719,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "colresize +conf",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3089,10 +2741,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "swapcol l",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3114,10 +2763,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "swapcol r",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3137,10 +2783,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "movecoltoworkspace 1",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3158,10 +2801,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "movecoltoworkspace 2",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3179,10 +2819,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "movecoltoworkspace 3",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3200,10 +2837,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "movecoltoworkspace 4",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3221,10 +2855,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "movecoltoworkspace 5",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3242,10 +2873,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "movecoltoworkspace 6",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3263,10 +2891,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "movecoltoworkspace 7",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3284,10 +2909,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "movecoltoworkspace 8",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3305,10 +2927,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "movecoltoworkspace 9",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3326,10 +2945,7 @@ Singleton {
                             "dispatcher": "layoutmsg",
                             "argument": "movecoltoworkspace 10",
                             "flags": "",
-                            "compositor": {
-                                "type": "hyprland",
-                                "layouts": ["scrolling"]
-                            }
+                            "layouts": ["scrolling"]
                         }
                     ],
                     "enabled": true
@@ -3339,9 +2955,12 @@ Singleton {
     }
 
     // Validation helper
-    function validateModule(name, rawLoader, defaults, onComplete) {
-        var raw = rawLoader.text();
-        if (!raw) {
+    function validateModule(name, loader, defaults, onComplete) {
+        var raw = loader.text();
+        if (!raw || raw.trim().length === 0) {
+            // File is missing or empty — create with defaults
+            console.log(name + ".json missing or empty, creating default...");
+            loader.setText(JSON.stringify(defaults, null, 4));
             onComplete();
             return;
         }
@@ -3352,13 +2971,13 @@ Singleton {
 
             if (JSON.stringify(current) !== JSON.stringify(validated)) {
                 console.log("Merging and updating " + name + ".json...");
-                rawLoader.setText(JSON.stringify(validated, null, 4));
+                loader.setText(JSON.stringify(validated, null, 4));
             }
             onComplete();
         } catch (e) {
             console.log("Error validating " + name + " config (invalid JSON?): " + e);
             console.log("Overwriting with defaults due to error.");
-            rawLoader.setText(JSON.stringify(defaults, null, 4));
+            loader.setText(JSON.stringify(defaults, null, 4));
             onComplete();
         }
     }
@@ -3430,13 +3049,13 @@ Singleton {
         }
     }
 
-    // Hyprland configuration
-    property QtObject hyprland: hyprlandLoader.adapter
-    property int hyprlandRounding: hyprland.syncRoundness ? roundness : hyprland.rounding
-    property int hyprlandBorderSize: hyprland.syncBorderWidth ? (theme.srBg.border[1] || 0) : hyprland.borderSize
-    property string hyprlandBorderColor: hyprland.syncBorderColor ? (theme.srBg.border[0] || "primary") : (hyprland.activeBorderColor.length > 0 ? hyprland.activeBorderColor[0] : "primary")
-    property real hyprlandShadowOpacity: hyprland.syncShadowOpacity ? theme.shadowOpacity : hyprland.shadowOpacity
-    property string hyprlandShadowColor: hyprland.syncShadowColor ? theme.shadowColor : hyprland.shadowColor
+    // Compositor configuration
+    property QtObject compositor: compositorLoader.adapter
+    property int compositorRounding: compositor.syncRoundness ? roundness : compositor.rounding
+    property int compositorBorderSize: compositor.syncBorderWidth ? (theme.srBg.border[1] || 0) : compositor.borderSize
+    property string compositorBorderColor: compositor.syncBorderColor ? (theme.srBg.border[0] || "primary") : (compositor.activeBorderColor.length > 0 ? compositor.activeBorderColor[0] : "primary")
+    property real compositorShadowOpacity: compositor.syncShadowOpacity ? theme.shadowOpacity : compositor.shadowOpacity
+    property string compositorShadowColor: compositor.syncShadowColor ? theme.shadowColor : compositor.shadowColor
 
     // Performance configuration
     property QtObject performance: performanceLoader.adapter
@@ -3479,8 +3098,8 @@ Singleton {
     function saveNotch() {
         notchLoader.writeAdapter();
     }
-    function saveHyprland() {
-        hyprlandLoader.writeAdapter();
+    function saveCompositor() {
+        compositorLoader.writeAdapter();
     }
     function savePerformance() {
         performanceLoader.writeAdapter();

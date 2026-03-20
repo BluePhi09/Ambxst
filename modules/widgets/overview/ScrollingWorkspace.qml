@@ -1,11 +1,12 @@
-pragma ComponentBehavior: Bound
 import QtQuick
+
+// pragma ComponentBehavior: Bound
+
 import QtQuick.Controls
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import qs.modules.globals
 import qs.modules.theme
 import qs.modules.services
@@ -52,7 +53,7 @@ Item {
     // Filter windows for this workspace and monitor
     readonly property var workspaceWindows: {
         return windowList.filter(win => {
-            return win?.workspace?.id === workspaceId && win.monitor === monitorId;
+            return (win && win.workspace ? win.workspace.id : null) === workspaceId && win.monitor === monitorId;
         });
     }
 
@@ -72,11 +73,11 @@ Item {
 
         for (const win of workspaceWindows) {
             // Calculate window position the same way as in the delegate
-            let baseX = (win?.at?.[0] || 0) - (monitorData?.x || 0);
+            let baseX = ((win && win.at && win.at[0] !== undefined ? win.at[0] : 0) || 0) - ((monitorData && monitorData.x !== undefined ? monitorData.x : 0) || 0);
             if (barPosition === "left")
                 baseX -= barReserved;
             const scaledX = baseX * scale_;
-            const winWidth = (win?.size?.[0] || 100) * scale_;
+            const winWidth = ((win && win.size && win.size[0] !== undefined ? win.size[0] : 100) || 100) * scale_;
 
             minX = Math.min(minX, scaledX);
             maxX = Math.max(maxX, scaledX + winWidth);
@@ -137,9 +138,9 @@ Item {
     }
 
     Behavior on horizontalScrollOffset {
-        enabled: Config.animDuration > 0 && !root.isScrollDragging && !root.isWheelScrolling
+        enabled: (Config.animDuration !== undefined ? Config.animDuration : 0) > 0 && !root.isScrollDragging && !root.isWheelScrolling
         NumberAnimation {
-            duration: Config.animDuration / 2
+            duration: (Config.animDuration !== undefined ? Config.animDuration : 0) / 2
             easing.type: Easing.OutQuart
         }
     }
@@ -265,7 +266,7 @@ Item {
             TapHandler {
                 acceptedButtons: Qt.LeftButton
                 onDoubleTapped: {
-                    Hyprland.dispatch(`workspace ${root.workspaceId}`);
+                    AxctlService.dispatch(`workspace ${root.workspaceId}`);
                     Visibilities.setActiveModule("", true);
                 }
             }
@@ -280,7 +281,11 @@ Item {
                     readonly property var windowData: modelData
                     readonly property var toplevel: {
                         const toplevels = ToplevelManager.toplevels.values;
-                        return toplevels.find(t => `0x${t.HyprlandToplevel.address}` === windowData.address) || null;
+                        const cls = windowData.class || "";
+                        if (!cls) return null;
+                        const candidates = toplevels.filter(t => t.appId === cls);
+                        if (candidates.length <= 1) return candidates[0] || null;
+                        return candidates.find(t => t.title === (windowData.title || "")) || candidates[0];
                     }
 
                     // Override position tracking for immediate visual update
@@ -292,7 +297,7 @@ Item {
                     readonly property real baseX: {
                         if (useOverridePosition && overrideBaseX >= 0)
                             return overrideBaseX;
-                        let base = (windowData?.at?.[0] || 0) - (monitorData?.x || 0);
+                        let base = ((windowData && windowData.at && windowData.at[0] !== undefined ? windowData.at[0] : 0) || 0) - ((monitorData && monitorData.x !== undefined ? monitorData.x : 0) || 0);
                         if (barPosition === "left")
                             base -= barReserved;
                         return (base * scale_) + root.viewportOffset + root.horizontalScrollOffset;
@@ -300,18 +305,18 @@ Item {
                     readonly property real baseY: {
                         if (useOverridePosition && overrideBaseY >= 0)
                             return overrideBaseY;
-                        let base = (windowData?.at?.[1] || 0) - (monitorData?.y || 0);
+                        let base = ((windowData && windowData.at && windowData.at[1] !== undefined ? windowData.at[1] : 0) || 0) - ((monitorData && monitorData.y !== undefined ? monitorData.y : 0) || 0);
                         if (barPosition === "top")
                             base -= barReserved;
                         return Math.max(base * scale_, 0);
                     }
-                    readonly property real targetWidth: Math.round((windowData?.size[0] || 100) * scale_)
-                    readonly property real targetHeight: Math.round((windowData?.size[1] || 100) * scale_)
+                    readonly property real targetWidth: Math.round(((windowData && windowData.size && windowData.size[0] !== undefined ? windowData.size[0] : 100) || 100) * scale_)
+                    readonly property real targetHeight: Math.round(((windowData && windowData.size && windowData.size[1] !== undefined ? windowData.size[1] : 100) || 100) * scale_)
                     readonly property bool compactMode: targetHeight < 60 || targetWidth < 60
-                    readonly property string iconPath: AppSearch.guessIcon(windowData?.class || "")
+                    readonly property string iconPath: AppSearch.guessIcon((windowData && windowData.class !== undefined ? windowData.class : "") || "")
                     readonly property int calculatedRadius: Styling.radius(-2)
-                    readonly property bool isMatched: root.checkWindowMatched(windowData?.address)
-                    readonly property bool isSelected: root.checkWindowSelected(windowData?.address)
+                    readonly property bool isMatched: root.checkWindowMatched((windowData && windowData.address !== undefined ? windowData.address : undefined))
+                    readonly property bool isSelected: root.checkWindowSelected((windowData && windowData.address !== undefined ? windowData.address : undefined))
 
                     x: baseX
                     y: baseY
@@ -332,7 +337,7 @@ Item {
                     Drag.hotSpot.x: width / 2
                     Drag.hotSpot.y: height / 2
 
-                    // Timer to reset override position after Hyprland update
+                    // Timer to reset override position after AxctlService update
                     Timer {
                         id: resetOverrideTimer
                         interval: 200
@@ -349,16 +354,16 @@ Item {
                     }
 
                     Behavior on x {
-                        enabled: Config.animDuration > 0 && !windowDelegate.dragging && !windowDelegate.useOverridePosition
+                        enabled: (Config.animDuration !== undefined ? Config.animDuration : 0) > 0 && !windowDelegate.dragging && !windowDelegate.useOverridePosition
                         NumberAnimation {
-                            duration: Config.animDuration
+                            duration: (Config.animDuration !== undefined ? Config.animDuration : 0)
                             easing.type: Easing.OutQuart
                         }
                     }
                     Behavior on y {
-                        enabled: Config.animDuration > 0 && !windowDelegate.dragging && !windowDelegate.useOverridePosition
+                        enabled: (Config.animDuration !== undefined ? Config.animDuration : 0) > 0 && !windowDelegate.dragging && !windowDelegate.useOverridePosition
                         NumberAnimation {
-                            duration: Config.animDuration
+                            duration: (Config.animDuration !== undefined ? Config.animDuration : 0)
                             easing.type: Easing.OutQuart
                         }
                     }
@@ -391,9 +396,9 @@ Item {
                         visible: !Config.performance.windowPreview
 
                         Behavior on color {
-                            enabled: Config.animDuration > 0
+                            enabled: (Config.animDuration !== undefined ? Config.animDuration : 0) > 0
                             ColorAnimation {
-                                duration: Config.animDuration / 2
+                                duration: (Config.animDuration !== undefined ? Config.animDuration : 0) / 2
                             }
                         }
                     }
@@ -443,7 +448,7 @@ Item {
 
                     // XWayland indicator
                     Rectangle {
-                        visible: windowDelegate.windowData?.xwayland || false
+                        visible: (windowDelegate.windowData && windowDelegate.windowData.xwayland !== undefined ? windowDelegate.windowData.xwayland : false) || false
                         anchors.top: parent.top
                         anchors.right: parent.right
                         anchors.margins: 2
@@ -543,7 +548,7 @@ Item {
 
                                     if (targetWs !== root.workspaceId) {
                                         // Moving to different workspace
-                                        if (windowDelegate.windowData?.floating) {
+                                        if ((windowDelegate.windowData && windowDelegate.windowData.floating !== undefined ? windowDelegate.windowData.floating : false)) {
                                             // Calculate position for floating window in target workspace
                                             const draggedX = windowDelegate.x;
                                             const draggedY = windowDelegate.y;
@@ -555,8 +560,8 @@ Item {
                                             const workspaceX = relativeX - root.horizontalScrollOffset - root.viewportOffset;
                                             const workspaceY = relativeY;
                                             
-                                            const monitorWidth = (monitorData?.width || 1920) / (monitorData?.scale || 1.0);
-                                            const monitorHeight = (monitorData?.height || 1080) / (monitorData?.scale || 1.0);
+                                            const monitorWidth = ((monitorData && monitorData.width !== undefined ? monitorData.width : 1920) || 1920) / ((monitorData && monitorData.scale !== undefined ? monitorData.scale : 1.0) || 1.0);
+                                            const monitorHeight = ((monitorData && monitorData.height !== undefined ? monitorData.height : 1080) || 1080) / ((monitorData && monitorData.scale !== undefined ? monitorData.scale : 1.0) || 1.0);
                                             
                                             let adjustedMonitorWidth = monitorWidth;
                                             let adjustedMonitorHeight = monitorHeight;
@@ -574,17 +579,17 @@ Item {
                                             const percentageY = Math.round((actualY / adjustedMonitorHeight) * 100);
                                             
                                             // Move to workspace and set position
-                                            Hyprland.dispatch(`movetoworkspacesilent ${targetWs}, address:${windowDelegate.windowData?.address}`);
-                                            Hyprland.dispatch(`movewindowpixel exact ${percentageX}% ${percentageY}%, address:${windowDelegate.windowData?.address}`);
+                                            AxctlService.dispatch(`movetoworkspacesilent ${targetWs}, address:${(windowDelegate.windowData && windowDelegate.windowData.address !== undefined ? windowDelegate.windowData.address : "")}`);
+                                            AxctlService.dispatch(`movewindowpixel exact ${percentageX}% ${percentageY}%, address:${(windowDelegate.windowData && windowDelegate.windowData.address !== undefined ? windowDelegate.windowData.address : "")}`);
                                             
                                             // Force immediate window data update
-                                            HyprlandData.updateWindowList();
+                                            CompositorData.updateWindowList();
                                         } else {
                                             // Just move workspace without repositioning for tiled windows
-                                            Hyprland.dispatch(`movetoworkspacesilent ${targetWs}, address:${windowDelegate.windowData?.address}`);
+                                            AxctlService.dispatch(`movetoworkspacesilent ${targetWs}, address:${(windowDelegate.windowData && windowDelegate.windowData.address !== undefined ? windowDelegate.windowData.address : "")}`);
                                             
                                             // Force immediate window data update
-                                            HyprlandData.updateWindowList();
+                                            CompositorData.updateWindowList();
                                         }
                                         
                                         // Restore original parent and reset position
@@ -595,7 +600,7 @@ Item {
                                         windowDelegate.x = windowDelegate.initX;
                                         windowDelegate.y = windowDelegate.initY;
                                         
-                                    } else if (windowDelegate.windowData?.floating && (windowDelegate.x !== windowDelegate.initX || windowDelegate.y !== windowDelegate.initY)) {
+                                    } else if ((windowDelegate.windowData && windowDelegate.windowData.floating !== undefined ? windowDelegate.windowData.floating : false) && (windowDelegate.x !== windowDelegate.initX || windowDelegate.y !== windowDelegate.initY)) {
                                         // Dropped on same workspace and window is floating - reposition it
                                         // The window is currently in the drag overlay with global coordinates
                                         
@@ -615,8 +620,8 @@ Item {
                                         const workspaceY = relativeY;
                                         
                                         // Convert to percentage of workspace dimensions (in scaled space)
-                                        const monitorWidth = (monitorData?.width || 1920) / (monitorData?.scale || 1.0);
-                                        const monitorHeight = (monitorData?.height || 1080) / (monitorData?.scale || 1.0);
+                                        const monitorWidth = ((monitorData && monitorData.width !== undefined ? monitorData.width : 1920) || 1920) / ((monitorData && monitorData.scale !== undefined ? monitorData.scale : 1.0) || 1.0);
+                                        const monitorHeight = ((monitorData && monitorData.height !== undefined ? monitorData.height : 1080) || 1080) / ((monitorData && monitorData.scale !== undefined ? monitorData.scale : 1.0) || 1.0);
                                         
                                         // Adjust for bar reserved space
                                         let adjustedMonitorWidth = monitorWidth;
@@ -637,10 +642,10 @@ Item {
                                         const percentageY = Math.round((actualY / adjustedMonitorHeight) * 100);
                                         
                                         // Dispatch movewindowpixel command
-                                        Hyprland.dispatch(`movewindowpixel exact ${percentageX}% ${percentageY}%, address:${windowDelegate.windowData?.address}`);
+                                        AxctlService.dispatch(`movewindowpixel exact ${percentageX}% ${percentageY}%, address:${(windowDelegate.windowData && windowDelegate.windowData.address !== undefined ? windowDelegate.windowData.address : "")}`);
                                         
                                         // Force immediate window data update
-                                        HyprlandData.updateWindowList();
+                                        CompositorData.updateWindowList();
                                         
                                         // Restore original parent
                                         if (windowDelegate.originalParent) {
@@ -682,9 +687,9 @@ Item {
                             if (!windowDelegate.windowData)
                                 return;
                             if (mouse.button === Qt.LeftButton && !windowDelegate.dragging) {
-                                Hyprland.dispatch(`focuswindow address:${windowDelegate.windowData.address}`);
+                                AxctlService.dispatch(`focuswindow address:${windowDelegate.windowData.address}`);
                             } else if (mouse.button === Qt.MiddleButton) {
-                                Hyprland.dispatch(`closewindow address:${windowDelegate.windowData.address}`);
+                                AxctlService.dispatch(`closewindow address:${windowDelegate.windowData.address}`);
                             }
                         }
 
@@ -694,7 +699,7 @@ Item {
                             if (mouse.button === Qt.LeftButton) {
                                 Visibilities.setActiveModule("", true);
                                 Qt.callLater(() => {
-                                    Hyprland.dispatch(`focuswindow address:${windowDelegate.windowData.address}`);
+                                    AxctlService.dispatch(`focuswindow address:${windowDelegate.windowData.address}`);
                                 });
                             }
                         }
@@ -716,7 +721,7 @@ Item {
                         Text {
                             id: tooltipText
                             anchors.centerIn: parent
-                            text: `${windowDelegate.windowData?.title || ""}\n[${windowDelegate.windowData?.class || ""}]${windowDelegate.windowData?.xwayland ? " [XWayland]" : ""}`
+                            text: `${(windowDelegate.windowData && windowDelegate.windowData.title !== undefined ? windowDelegate.windowData.title : "") || ""}\n[${(windowDelegate.windowData && windowDelegate.windowData.class !== undefined ? windowDelegate.windowData.class : "") || ""}]${(windowDelegate.windowData && windowDelegate.windowData.xwayland !== undefined ? windowDelegate.windowData.xwayland : false) ? " [XWayland]" : ""}`
                             font.family: Config.theme.font
                             font.pixelSize: 10
                             color: Colors.inverseOnSurface

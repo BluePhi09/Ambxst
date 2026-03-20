@@ -41,8 +41,8 @@ ActionGrid {
         },
         {
             icon: Icons.logout,
-            tooltip: "Exit Hyprland",
-            command: "hyprctl dispatch exit"
+            tooltip: "Exit AxctlService",
+            command: "axctl system exit"
         },
         {
             icon: Icons.reboot,

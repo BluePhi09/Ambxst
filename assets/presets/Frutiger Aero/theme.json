@@ -10,7 +10,7 @@
     "roundness": 16,
     "shadowBlur": 1,
     "shadowColor": "shadow",
-    "shadowOpacity": 0,
+    "shadowOpacity": 0.25,
     "shadowXOffset": 0,
     "shadowYOffset": 0,
     "srBarBg": {
@@ -41,7 +41,7 @@
     "srBg": {
         "border": [
             "surfaceBright",
-            2
+            0
         ],
         "gradient": [
             [
@@ -444,7 +444,7 @@
         ],
         "gradient": [
             [
-                "surfaceContainerHigh",
+                "blueContainer",
                 0
             ],
             [
@@ -456,7 +456,7 @@
                 0.501
             ],
             [
-                "surfaceDim",
+                "greenContainer",
                 1
             ]
         ],
@@ -472,7 +472,7 @@
         "halftoneStart": 0,
         "itemColor": "overBackground",
         "label": "Popup",
-        "opacity": 1
+        "opacity": 0.8
     },
     "srPrimary": {
         "border": [

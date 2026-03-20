@@ -2,7 +2,6 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
-import Quickshell.Hyprland
 import qs.modules.services
 
 Singleton {
@@ -36,10 +35,10 @@ Singleton {
     }
 
     function getForActive() {
-        if (!Hyprland.focusedMonitor) {
+        if (!AxctlService.focusedMonitor) {
             return null;
         }
-        return getForScreen(Hyprland.focusedMonitor.name);
+        return getForScreen(AxctlService.focusedMonitor.name);
     }
 
     // Helper to clone map and trigger update
@@ -137,7 +136,7 @@ Singleton {
     }
 
     function setActiveModule(moduleName) {
-        const focusedMonitor = Hyprland.focusedMonitor;
+        const focusedMonitor = AxctlService.focusedMonitor;
         if (!focusedMonitor)
             return;
 
@@ -156,7 +155,7 @@ Singleton {
     }
 
     function moveActiveModuleToFocusedScreen() {
-        const focusedMonitor = Hyprland.focusedMonitor;
+        const focusedMonitor = AxctlService.focusedMonitor;
         if (!focusedMonitor || !currentActiveModule)
             return;
 
@@ -203,7 +202,7 @@ Singleton {
 
     // Monitor focus changes
     Connections {
-        target: Hyprland
+        target: AxctlService
         function onFocusedMonitorChanged() {
             moveActiveModuleToFocusedScreen();
         }

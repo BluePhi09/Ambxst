@@ -3,7 +3,6 @@ import QtQuick
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import qs.modules.globals
 import qs.modules.theme
 import qs.modules.services
@@ -79,7 +78,7 @@ Item {
 
     clip: true
 
-    // Timer to reset override position after a delay (waiting for Hyprland update)
+    // Timer to reset override position after a delay (waiting for AxctlService update)
     Timer {
         id: resetOverrideTimer
         interval: 200
@@ -252,13 +251,13 @@ Item {
             root.hovered = true;
             // Only focus window on hover if it's in the current workspace
             if (root.windowData) {
-                // Get current active workspace from Hyprland
-                let currentWorkspace = Hyprland.focusedMonitor?.activeWorkspace?.id;
+                // Get current active workspace from AxctlService
+                let currentWorkspace = AxctlService.focusedMonitor?.activeWorkspace?.id;
                 let windowWorkspace = root.windowData?.workspace?.id;
 
                 // Only focus if the window is in the current workspace
                 if (currentWorkspace && windowWorkspace && currentWorkspace === windowWorkspace) {
-                    Hyprland.dispatch(`focuswindow address:${windowData.address}`);
+                    AxctlService.dispatch(`focuswindow address:${windowData.address}`);
                 }
             }
         }
@@ -318,17 +317,17 @@ Item {
                         const percentageY = Math.round((relativeY / root.availableWorkspaceHeight) * 100);
                         
                         // Move to workspace and set position
-                        Hyprland.dispatch(`movetoworkspacesilent ${targetWorkspace}, address:${windowData?.address}`);
-                        Hyprland.dispatch(`movewindowpixel exact ${percentageX}% ${percentageY}%, address:${windowData?.address}`);
+                        AxctlService.dispatch(`movetoworkspacesilent ${targetWorkspace}, address:${windowData?.address}`);
+                        AxctlService.dispatch(`movewindowpixel exact ${percentageX}% ${percentageY}%, address:${windowData?.address}`);
                         
                         // Force immediate window data update
-                        HyprlandData.updateWindowList();
+                        CompositorData.updateWindowList();
                     } else {
                         // Just move workspace without repositioning
-                        Hyprland.dispatch(`movetoworkspacesilent ${targetWorkspace}, address:${windowData?.address}`);
+                        AxctlService.dispatch(`movetoworkspacesilent ${targetWorkspace}, address:${windowData?.address}`);
                         
                         // Force immediate window data update
-                        HyprlandData.updateWindowList();
+                        CompositorData.updateWindowList();
                     }
                     
                     // Reset position in overview
@@ -345,10 +344,10 @@ Item {
                     const draggedX = root.x;
                     const draggedY = root.y;
                     
-                    Hyprland.dispatch(`movewindowpixel exact ${percentageX}% ${percentageY}%, address:${windowData?.address}`);
+                    AxctlService.dispatch(`movewindowpixel exact ${percentageX}% ${percentageY}%, address:${windowData?.address}`);
                     
                     // Force immediate window data update
-                    HyprlandData.updateWindowList();
+                    CompositorData.updateWindowList();
                     
                     // Set override position for immediate visual update
                     root.overrideX = draggedX;
@@ -373,7 +372,7 @@ Item {
 
             if (mouse.button === Qt.LeftButton) {
                 // Single click just focuses the window without closing overview
-                Hyprland.dispatch(`focuswindow address:${windowData.address}`);
+                AxctlService.dispatch(`focuswindow address:${windowData.address}`);
             } else if (mouse.button === Qt.MiddleButton) {
                 root.windowClosed();
             }

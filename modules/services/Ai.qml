@@ -14,7 +14,7 @@ Singleton {
     // PROPERTIES
     // ============================================
 
-    property string chatDir: Quickshell.dataPath("chats/")
+    property string chatDir: Quickshell.env("HOME") + "/.local/share/ambxst/chats"
     property string tmpDir: "/tmp/ambxst-ai"
 
     property list<AiModel> models: []
@@ -28,15 +28,13 @@ Singleton {
         if (persistenceReady && currentModel && isRestored) {
             StateService.set("lastAiModel", currentModel.model);
         }
+        updateStrategy();
     }
 
     function restoreModel() {
-        const lastModelId = StateService.get("lastAiModel", "gemini-pro");
+        const lastModelId = StateService.get("lastAiModel", "gemini-2.0-flash");
         savedModelId = lastModelId;
-
-        // Attempt immediate restoration if models are already loaded
         tryRestore();
-
         persistenceReady = true;
     }
 
@@ -46,7 +44,6 @@ Singleton {
 
         let found = false;
 
-        // 1. Exact match
         for (let i = 0; i < models.length; i++) {
             if (models[i].model === savedModelId) {
                 currentModel = models[i];
@@ -55,7 +52,6 @@ Singleton {
             }
         }
 
-        // 2. Fuzzy/Migration match (e.g. "gemini-pro" -> "gemini/gemini-pro")
         if (!found && savedModelId) {
             for (let i = 0; i < models.length; i++) {
                 if (models[i].model.endsWith(savedModelId) || models[i].model.endsWith("/" + savedModelId)) {
@@ -66,9 +62,8 @@ Singleton {
             }
         }
 
-        if (found) {
+        if (found)
             isRestored = true;
-        }
     }
 
     Connections {
@@ -78,65 +73,95 @@ Singleton {
         }
     }
 
-    Component.onCompleted: {
-        // Try restoration immediately if possible, or wait for signal
-        if (StateService.initialized) {
-            restoreModel();
-        }
-
-        // Dynamic fetch if no models
-        if (models.length === 0) {
+    Connections {
+        target: KeyStore
+        function onKeysChanged() {
             fetchAvailableModels();
         }
+    }
 
-        // Initialize chat
+    Component.onCompleted: {
+        if (StateService.initialized)
+            restoreModel();
+
+        if (models.length === 0)
+            fetchAvailableModels();
+
         reloadHistory();
         createNewChat();
     }
 
-    // Strategies
-    // We only need OpenAI strategy now since LiteLLM standardizes everything to it
+    // ============================================
+    // STRATEGIES
+    // ============================================
+
     property OpenAiApiStrategy openaiStrategy: OpenAiApiStrategy {}
-
-    // Kept for compatibility if strategy switching logic is still used elsewhere, but they are unused now
     property GeminiApiStrategy geminiStrategy: GeminiApiStrategy {}
+    property AnthropicApiStrategy anthropicStrategy: AnthropicApiStrategy {}
     property MistralApiStrategy mistralStrategy: MistralApiStrategy {}
+    property GroqApiStrategy groqStrategy: GroqApiStrategy {}
+    property OllamaApiStrategy ollamaStrategy: OllamaApiStrategy {}
 
-    // Always use OpenAI strategy
     property ApiStrategy currentStrategy: openaiStrategy
 
-    function updateStrategy() {
-        // No-op: LiteLLM handles the differences
-        currentStrategy = openaiStrategy;
+    function getStrategyForProvider(providerName) {
+        switch (providerName) {
+        case "openai": return openaiStrategy;
+        case "gemini": return geminiStrategy;
+        case "anthropic": return anthropicStrategy;
+        case "mistral": return mistralStrategy;
+        case "groq": return groqStrategy;
+        case "ollama": return ollamaStrategy;
+        case "custom": return openaiStrategy; // custom endpoints use OpenAI-compatible format by default
+        default: return openaiStrategy;
+        }
     }
 
-    // State
+    function updateStrategy() {
+        if (currentModel)
+            currentStrategy = getStrategyForProvider(currentModel.provider);
+        else
+            currentStrategy = openaiStrategy;
+    }
+
+    // ============================================
+    // STATE
+    // ============================================
+
     property bool isLoading: false
     property string lastError: ""
     property string responseBuffer: ""
 
     // Current Chat
-    property var currentChat: [] // Array of { role: "user"|"assistant", content: "..." }
+    property var currentChat: []
     property string currentChatId: ""
 
     // Chat History List (files)
-    // Chat History List (files)
     property var chatHistory: []
+
+    FileView {
+        id: chatFileView
+        printErrors: false
+    }
+
+    FileView {
+        id: bodyFileView
+        printErrors: false
+    }
 
     // ============================================
     // TOOLS
     // ============================================
+
     function regenerateResponse(index) {
         if (index < 0 || index >= currentChat.length)
             return;
 
-        // Remove this message and everything after it
         let newChat = currentChat.slice(0, index);
         currentChat = newChat;
 
         isLoading = true;
         lastError = "";
-
         makeRequest();
     }
 
@@ -156,13 +181,13 @@ Singleton {
     property var systemTools: [
         {
             name: "run_shell_command",
-            description: "Execute a shell command on the user's system (Linux/Hyprland). Use this to list files, control the system, or run utilities. Output will be returned.",
+            description: "Execute a shell command on the user's system (Linux). Use this to list files, control the system, or run utilities. Output will be returned.",
             parameters: {
                 type: "OBJECT",
                 properties: {
                     command: {
                         type: "STRING",
-                        description: "The shell command to run (e.g. 'ls -la', 'ip addr', 'hyprctl clients')"
+                        description: "The shell command to run (e.g. 'ls -la', 'ip addr')"
                     }
                 },
                 required: ["command"]
@@ -171,12 +196,12 @@ Singleton {
     ]
 
     // ============================================
-    // INIT
+    // CHAT MANAGEMENT
     // ============================================
+
     function deleteChat(id) {
-        if (id === currentChatId) {
+        if (id === currentChatId)
             createNewChat();
-        }
 
         let filename = chatDir + "/" + id + ".json";
         deleteChatProcess.command = ["rm", filename];
@@ -191,16 +216,21 @@ Singleton {
         for (let i = 0; i < models.length; i++) {
             if (models[i].name === modelName) {
                 currentModel = models[i];
-                updateStrategy();
                 return;
             }
         }
     }
 
     function getApiKey(model) {
-        if (!model.requires_key)
+        if (!model || !model.requires_key)
             return "";
-        return Quickshell.env(model.key_id) || "";
+
+        // Try KeyStore first
+        let ksKey = KeyStore.getKey(model.provider);
+        if (ksKey)
+            return ksKey;
+
+        return "";
     }
 
     function processCommand(text) {
@@ -218,7 +248,6 @@ Singleton {
             return true;
         case "/model":
             if (args) {
-                // Fuzzy search or exact match
                 let found = false;
                 for (let i = 0; i < models.length; i++) {
                     if (models[i].name.toLowerCase().includes(args.toLowerCase()) || models[i].model.toLowerCase() === args.toLowerCase()) {
@@ -233,7 +262,6 @@ Singleton {
                     pushSystemMessage("Switched to model: " + currentModel.name);
                 }
             } else {
-                // Request UI to show selection popup
                 modelSelectionRequested();
             }
             return true;
@@ -260,14 +288,12 @@ Singleton {
         if (!msg.functionCall)
             return;
 
-        // Update message state
         let newChat = Array.from(currentChat);
         newChat[index].functionPending = false;
         newChat[index].functionApproved = true;
         currentChat = newChat;
         saveCurrentChat();
 
-        // Execute
         let args = msg.functionCall.args;
         if (msg.functionCall.name === "run_shell_command") {
             commandExecutionProc.command = ["bash", "-c", args.command];
@@ -281,7 +307,6 @@ Singleton {
         newChat[index].functionPending = false;
         newChat[index].functionApproved = false;
 
-        // Add system message indicating rejection
         newChat.push({
             role: "function",
             name: newChat[index].functionCall.name,
@@ -290,38 +315,33 @@ Singleton {
 
         currentChat = newChat;
         saveCurrentChat();
-
-        // Continue conversation
         makeRequest();
     }
 
-    function sendMessage(text) {
-        if (text.trim() === "")
+    function sendMessage(text, attachments) {
+        if (text.trim() === "" && (!attachments || attachments.length === 0))
             return;
-
         if (processCommand(text))
             return;
-
         isLoading = true;
         lastError = "";
-
-        // Add user message to UI immediately
         let userMsg = {
             role: "user",
             content: text
         };
+        if (attachments && attachments.length > 0)
+            userMsg.attachments = attachments;
         let newChat = Array.from(currentChat);
         newChat.push(userMsg);
         currentChat = newChat;
-
+        saveCurrentChat();
         makeRequest();
     }
 
     function makeRequest() {
-        // Prepare Request
         let apiKey = getApiKey(currentModel);
         if (!apiKey && currentModel.requires_key) {
-            lastError = "API Key missing for " + currentModel.name;
+            lastError = "API Key missing for " + currentModel.name + ". Add it in Settings or set " + (currentModel.key_id || "the environment variable") + ".";
             isLoading = false;
 
             let errChat = Array.from(currentChat);
@@ -333,10 +353,18 @@ Singleton {
             return;
         }
 
-        let endpoint = currentStrategy.getEndpoint(currentModel, apiKey);
+        // Determine endpoint — Gemini streaming uses a different endpoint
+        let endpoint;
+        let isGemini = currentModel.provider === "gemini";
+        if (isGemini && geminiStrategy._getStreamEndpoint) {
+            endpoint = geminiStrategy._getStreamEndpoint(currentModel, apiKey);
+        } else {
+            endpoint = currentStrategy.getEndpoint(currentModel, apiKey);
+        }
+
         let headers = currentStrategy.getHeaders(apiKey);
 
-        // Include system prompt
+        // Build messages array
         let messages = [];
         if (Config.ai.systemPrompt) {
             messages.push({
@@ -344,37 +372,44 @@ Singleton {
                 content: Config.ai.systemPrompt
             });
         }
-        // Add history (simple version: all messages)
-        // Note: Gemini doesn't support 'system' role in messages list the same way, handled in strategy
+
         for (let i = 0; i < currentChat.length; i++) {
             let msg = currentChat[i];
-            // Sanitize message object for strict APIs
             let apiMsg = {
                 role: msg.role,
                 content: msg.content
             };
-
-            // Only include function call info if relevant and supported (though currently strategies might ignore)
+            if (msg.attachments)
+                apiMsg.attachments = msg.attachments;
             if (msg.functionCall)
                 apiMsg.functionCall = msg.functionCall;
             if (msg.geminiParts)
-                apiMsg.geminiParts = msg.geminiParts; // Preserve Gemini parts
+                apiMsg.geminiParts = msg.geminiParts;
             if (msg.name)
-                apiMsg.name = msg.name; // For function role
-
+                apiMsg.name = msg.name;
             messages.push(apiMsg);
         }
 
-        // Pass tools
-        let body = currentStrategy.getBody(messages, currentModel, systemTools);
+        // Build body — always use streaming
+        let body = currentStrategy.getStreamBody(messages, currentModel, systemTools);
 
-        // Write body to temp file
+        // Reset streaming buffer
+        responseBuffer = "";
+
+        // Add placeholder assistant message for streaming
+        let streamChat = Array.from(currentChat);
+        streamChat.push({
+            role: "assistant",
+            content: "",
+            model: currentModel ? currentModel.name : "Unknown"
+        });
+        currentChat = streamChat;
+
         writeTempBody(JSON.stringify(body), headers, endpoint);
     }
 
     function writeTempBody(jsonBody, headers, endpoint) {
-        // Create tmp dir
-        requestProcess.command = ["mkdir", "-p", tmpDir];
+        requestProcess.command = ["/usr/bin/mkdir", "-p", tmpDir];
         requestProcess.step = "mkdir";
         requestProcess.payload = {
             body: jsonBody,
@@ -386,21 +421,35 @@ Singleton {
 
     function executeRequest(payload) {
         let bodyPath = tmpDir + "/body.json";
-
-        // Write body.json
-        // We use a separate process call for writing to avoid command line length limits
-        writeBodyProcess.command = ["sh", "-c", "echo '" + payload.body.replace(/'/g, "'\\''") + "' > " + bodyPath];
-        writeBodyProcess.payload = payload; // pass through
-        writeBodyProcess.running = true;
+        bodyFileView.path = bodyPath;
+        bodyFileView.setText(payload.body);
+        Qt.callLater(() => runCurl(payload));
     }
 
     function runCurl(payload) {
         let bodyPath = tmpDir + "/body.json";
         let headerArgs = payload.headers.map(h => "-H \"" + h + "\"").join(" ");
 
-        let curlCmd = "curl -s -X POST \"" + payload.endpoint + "\" " + headerArgs + " -d @" + bodyPath;
+        // Check for custom curl template
+        let customCurl = "";
+        if (currentModel && currentModel.customCurlTemplate) {
+            customCurl = currentModel.customCurlTemplate;
+        } else if (currentModel && KeyStore.getCustomCurl(currentModel.provider)) {
+            customCurl = KeyStore.getCustomCurl(currentModel.provider);
+        }
 
-        curlProcess.command = ["bash", "-c", curlCmd];
+        let curlCmd;
+        if (customCurl) {
+            // Replace placeholders in custom curl
+            curlCmd = customCurl
+                .replace("{{BODY_PATH}}", bodyPath)
+                .replace("{{ENDPOINT}}", payload.endpoint)
+                .replace("{{API_KEY}}", getApiKey(currentModel));
+        } else {
+            curlCmd = "curl -s --no-buffer -N -X POST \"" + payload.endpoint + "\" " + headerArgs + " -d @" + bodyPath;
+        }
+
+        curlProcess.command = ["/usr/bin/bash", "-c", curlCmd];
         curlProcess.running = true;
     }
 
@@ -416,15 +465,9 @@ Singleton {
         onExited: exitCode => {
             if (exitCode === 0 && step === "mkdir") {
                 executeRequest(payload);
-            } else {
-                root.lastError = "Failed to create temp directory (mkdir exited with " + exitCode + ")";
+            } else if (exitCode !== 0) {
+                root.lastError = "Failed to create temp directory";
                 root.isLoading = false;
-                let errChat = Array.from(root.currentChat);
-                errChat.push({
-                    role: "assistant",
-                    content: "Error: " + root.lastError
-                });
-                root.currentChat = errChat;
             }
         }
     }
@@ -442,12 +485,6 @@ Singleton {
             } else {
                 root.lastError = "Failed to write request body: " + writeBodyStderr.text;
                 root.isLoading = false;
-                let errChat = Array.from(root.currentChat);
-                errChat.push({
-                    role: "assistant",
-                    content: "Error: " + root.lastError
-                });
-                root.currentChat = errChat;
             }
         }
     }
@@ -455,60 +492,63 @@ Singleton {
     Process {
         id: curlProcess
 
-        stdout: StdioCollector {
-            id: curlStdout
+        // Use SplitParser for streaming — emits onRead per line
+        stdout: SplitParser {
+            onRead: data => {
+                let result = root.currentStrategy.parseStreamChunk(data);
+
+                if (result.error) {
+                    root.lastError = result.error;
+                    return;
+                }
+
+                if (result.content) {
+                    root.responseBuffer += result.content;
+                    // Update the last message in currentChat with accumulated text
+                    let newChat = Array.from(root.currentChat);
+                    if (newChat.length > 0) {
+                        newChat[newChat.length - 1].content = root.responseBuffer;
+                        root.currentChat = newChat;
+                    }
+                }
+
+                // Note: done is handled in onExited
+            }
         }
+
         stderr: StdioCollector {
             id: curlStderr
         }
 
         onExited: exitCode => {
             root.isLoading = false;
+
             if (exitCode === 0) {
-                let responseText = curlStdout.text;
-                let reply = root.currentStrategy.parseResponse(responseText);
-
-                let newChat = Array.from(root.currentChat);
-
-                if (reply.content) {
-                    newChat.push({
-                        role: "assistant",
-                        content: reply.content,
-                        model: root.currentModel ? root.currentModel.name : "Unknown"
-                    });
+                // Check if we got any content during streaming
+                if (root.responseBuffer === "" && root.currentChat.length > 0) {
+                    // No streaming data received — might be non-streaming response or error
+                    // The last message is our placeholder, leave as is
+                    let lastMsg = root.currentChat[root.currentChat.length - 1];
+                    if (!lastMsg.content) {
+                        let newChat = Array.from(root.currentChat);
+                        newChat[newChat.length - 1].content = "No response received from the API.";
+                        root.currentChat = newChat;
+                    }
                 }
 
-                if (reply.functionCall) {
-                    // It's a tool call
-                    let funcMsg = {
-                        role: "assistant",
-                        content: "I want to run a command: `" + reply.functionCall.name + "`",
-                        functionCall: reply.functionCall,
-                        functionPending: true // UI will show Approve/Reject
-                        ,
-                        geminiParts: reply.geminiParts // Store raw parts (thoughts) for API history
-                    };
-                    newChat.push(funcMsg);
-                }
-
-                root.currentChat = newChat;
                 root.saveCurrentChat();
-
-                // If it was just a text reply, stop loading. If it's a function, we wait for user.
-                if (!reply.functionCall) {
-                    root.isLoading = false;
-                }
             } else {
-                root.isLoading = false;
                 root.lastError = "Network Request Failed: " + curlStderr.text;
 
+                // Update the placeholder message with error
                 let errChat = Array.from(root.currentChat);
-                errChat.push({
-                    role: "assistant",
-                    content: "Error: " + root.lastError
-                });
+                if (errChat.length > 0) {
+                    errChat[errChat.length - 1].content = "Error: " + root.lastError;
+                }
                 root.currentChat = errChat;
             }
+
+            root.responseBuffer = "";
         }
     }
 
@@ -528,7 +568,6 @@ Singleton {
             if (output.trim() === "")
                 output = "Command executed successfully (no output).";
 
-            // Add function response
             let msg = currentChat[targetIndex];
             let newChat = Array.from(currentChat);
 
@@ -540,8 +579,6 @@ Singleton {
 
             root.currentChat = newChat;
             root.saveCurrentChat();
-
-            // Continue conversation
             root.makeRequest();
         }
     }
@@ -563,13 +600,32 @@ Singleton {
         let filename = chatDir + "/" + currentChatId + ".json";
         let data = JSON.stringify(currentChat, null, 2);
 
-        saveChatProcess.command = ["sh", "-c", "mkdir -p " + chatDir + " && echo '" + data.replace(/'/g, "'\\''") + "' > " + filename];
+        saveChatProcess.filePath = filename;
+        saveChatProcess.data = data;
+        saveChatProcess.command = ["/usr/bin/mkdir", "-p", chatDir];
         saveChatProcess.running = true;
     }
 
     function reloadHistory() {
-        // List files in chatDir
-        listHistoryProcess.command = ["sh", "-c", "mkdir -p " + chatDir + " && ls -t " + chatDir + "/*.json"];
+        let pyScript = `import os, json, glob
+chat_dir = "${chatDir}"
+os.makedirs(chat_dir, exist_ok=True)
+files = sorted(glob.glob(chat_dir + "/*.json"), key=os.path.getmtime, reverse=True)
+for f in files:
+    id = os.path.basename(f)[:-5]
+    title = "New Chat"
+    try:
+        with open(f, 'r') as fp:
+            data = json.load(fp)
+            for msg in data:
+                if msg.get("role") == "user":
+                    title = msg.get("content", "")[:40].replace("\\n", " ").strip()
+                    if len(msg.get("content", "")) > 40: title += "..."
+                    break
+    except: pass
+    print(f"{id}|{title}")
+`;
+        listHistoryProcess.command = ["python3", "-c", pyScript];
         listHistoryProcess.running = true;
     }
 
@@ -582,7 +638,19 @@ Singleton {
 
     Process {
         id: saveChatProcess
-        onExited: reloadHistory()
+        property string filePath: ""
+        property string data: ""
+        onExited: exitCode => {
+            if (exitCode === 0) {
+                if (filePath.length > 0)
+                    chatFileView.path = filePath;
+                if (data.length > 0)
+                    chatFileView.setText(data);
+                reloadHistory();
+            } else {
+                console.warn("Failed to create chat directory");
+            }
+        }
     }
 
     Process {
@@ -600,15 +668,17 @@ Singleton {
                 let lines = listHistoryStdout.text.trim().split("\n");
                 let history = [];
                 for (let i = 0; i < lines.length; i++) {
-                    let path = lines[i];
-                    if (path === "")
+                    let line = lines[i];
+                    if (line === "")
                         continue;
-                    let filename = path.split("/").pop();
-                    let id = filename.replace(".json", "");
-                    history.push({
-                        id: id,
-                        path: path
-                    });
+                    let parts = line.split("|");
+                    if (parts.length >= 2) {
+                        history.push({
+                            id: parts[0],
+                            title: parts.slice(1).join("|"),
+                            path: chatDir + "/" + parts[0] + ".json"
+                        });
+                    }
                 }
                 root.chatHistory = history;
                 root.historyModelChanged();
@@ -643,111 +713,81 @@ Singleton {
     property int pendingFetches: 0
 
     function fetchAvailableModels() {
+        fetchingModels = false; // Force refresh
         if (fetchingModels)
             return;
 
         fetchingModels = true;
-        // We'll fetch from multiple sources again to populate the list dynamically
-        // but point them all to the local LiteLLM proxy for execution.
         pendingFetches = 0;
 
         // Gemini
-        if (Quickshell.env("GEMINI_API_KEY")) {
+        let geminiKey = KeyStore.getKey("gemini");
+        if (geminiKey) {
             pendingFetches++;
-            fetchProcessGemini.command = ["bash", "-c", "curl -s 'https://generativelanguage.googleapis.com/v1beta/models?key=" + Quickshell.env("GEMINI_API_KEY") + "'"];
+            fetchProcessGemini.command = ["bash", "-c", "curl -s 'https://generativelanguage.googleapis.com/v1beta/models?key=" + geminiKey + "'"];
             fetchProcessGemini.running = true;
         }
 
-        // Mistral
-        if (Quickshell.env("MISTRAL_API_KEY")) {
+        // OpenAI
+        let openaiKey = KeyStore.getKey("openai");
+        if (openaiKey) {
             pendingFetches++;
-            fetchProcessMistral.command = ["bash", "-c", "curl -s https://api.mistral.ai/v1/models -H 'Authorization: Bearer " + Quickshell.env("MISTRAL_API_KEY") + "'"];
+            fetchProcessOpenAI.command = ["bash", "-c", "curl -s https://api.openai.com/v1/models -H 'Authorization: Bearer " + openaiKey + "'"];
+            fetchProcessOpenAI.running = true;
+        }
+
+        // Anthropic — no models listing API, add known models
+        let anthropicKey = KeyStore.getKey("anthropic");
+        if (anthropicKey) {
+            let anthropicModels = [
+                { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4" },
+                { id: "claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku" },
+                { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet" }
+            ];
+            let newModels = [];
+            for (let i = 0; i < anthropicModels.length; i++) {
+                let item = anthropicModels[i];
+                let m = aiModelFactory.createObject(root, {
+                    name: item.name,
+                    icon: Qt.resolvedUrl("../../../assets/aiproviders/anthropic.svg"),
+                    description: "Anthropic Model",
+                    endpoint: "https://api.anthropic.com/v1/messages",
+                    model: item.id,
+                    provider: "anthropic",
+                    requires_key: true,
+                    key_id: "ANTHROPIC_API_KEY"
+                });
+                if (m) newModels.push(m);
+            }
+            mergeModels(newModels);
+        }
+
+        // Mistral
+        let mistralKey = KeyStore.getKey("mistral");
+        if (mistralKey) {
+            pendingFetches++;
+            fetchProcessMistral.command = ["bash", "-c", "curl -s https://api.mistral.ai/v1/models -H 'Authorization: Bearer " + mistralKey + "'"];
             fetchProcessMistral.running = true;
         }
 
-        // OpenRouter
-        if (Quickshell.env("OPENROUTER_API_KEY")) {
+        // Groq
+        let groqKey = KeyStore.getKey("groq");
+        if (groqKey) {
             pendingFetches++;
-            fetchProcessOpenRouter.command = ["bash", "-c", "curl -s https://openrouter.ai/api/v1/models -H 'Authorization: Bearer " + Quickshell.env("OPENROUTER_API_KEY") + "'"];
-            fetchProcessOpenRouter.running = true;
+            fetchProcessGroq.command = ["bash", "-c", "curl -s https://api.groq.com/openai/v1/models -H 'Authorization: Bearer " + groqKey + "'"];
+            fetchProcessGroq.running = true;
         }
 
-        // Ollama (Local)
-        pendingFetches++;
-        fetchProcessOllama.command = ["bash", "-c", "curl -s http://127.0.0.1:11434/api/tags"];
-        fetchProcessOllama.running = true;
-
-        // GitHub Models (Static fallback/simulation as before since listing is complex)
-        if (Quickshell.env("GITHUB_TOKEN")) {
+        // Ollama (local)
+        let ollamaEnabled = KeyStore.hasKey("ollama");
+        if (ollamaEnabled) {
             pendingFetches++;
-            fetchProcessGithub.command = ["echo", '{"data": [{"id": "gpt-4o"}, {"id": "gpt-4o-mini"}]}'];
-            fetchProcessGithub.running = true;
+            fetchProcessOllama.command = ["bash", "-c", "curl -s http://127.0.0.1:11434/api/tags"];
+            fetchProcessOllama.running = true;
         }
 
-        // If no keys are set, fallback to checking LiteLLM itself (in case it has a config we can read)
         if (pendingFetches === 0) {
-            pendingFetches++;
-            fetchProcessLiteLLM.command = ["bash", "-c", "curl -s http://127.0.0.1:4000/v1/models"];
-            fetchProcessLiteLLM.running = true;
-        }
-    }
-
-    // We keep this generic LiteLLM fetcher as a fallback or for models defined strictly in config
-    Process {
-        id: fetchProcessLiteLLM
-        stdout: StdioCollector {
-            id: fetchLiteLLMOut
-        }
-        onExited: exitCode => {
-            if (exitCode === 0) {
-                try {
-                    let data = JSON.parse(fetchLiteLLMOut.text);
-                    if (data.data) {
-                        let newModels = [];
-                        for (let i = 0; i < data.data.length; i++) {
-                            let item = data.data[i];
-                            let id = item.id;
-
-                            // Determine icon based on name
-                            let iconPath = "robot";
-                            let provider = "OpenAI";
-
-                            if (id.includes("gemini")) {
-                                iconPath = Qt.resolvedUrl("../../../assets/aiproviders/google.svg");
-                                provider = "Google";
-                            } else if (id.includes("gpt")) {
-                                iconPath = Qt.resolvedUrl("../../../assets/aiproviders/openai.svg");
-                                provider = "OpenAI";
-                            } else if (id.includes("mistral")) {
-                                iconPath = Qt.resolvedUrl("../../../assets/aiproviders/mistral.svg");
-                                provider = "Mistral";
-                            } else if (id.includes("claude")) {
-                                iconPath = Qt.resolvedUrl("../../../assets/aiproviders/anthropic.svg");
-                                provider = "Anthropic";
-                            } else if (id.includes("deepseek")) {
-                                iconPath = Qt.resolvedUrl("../../../assets/aiproviders/deepseek.svg");
-                                provider = "DeepSeek";
-                            }
-
-                            let m = aiModelFactory.createObject(root, {
-                                name: id,
-                                icon: iconPath,
-                                description: "LiteLLM Model: " + id,
-                                endpoint: "http://127.0.0.1:4000/v1",
-                                model: id,
-                                api_format: provider,
-                                requires_key: false
-                            });
-                            if (m)
-                                newModels.push(m);
-                        }
-                        mergeModels(newModels);
-                    }
-                } catch (e) {
-                    console.log("LiteLLM fetch error: " + e);
-                }
-            }
-            checkFetchCompletion();
+            fetchingModels = false;
         }
     }
 
@@ -765,21 +805,18 @@ Singleton {
                         for (let i = 0; i < data.models.length; i++) {
                             let item = data.models[i];
                             let id = item.name.replace("models/", "");
-                            // Filter for generative models
                             if (id.includes("gemini") || id.includes("flash") || id.includes("pro")) {
                                 let m = aiModelFactory.createObject(root, {
                                     name: item.displayName || id,
                                     icon: Qt.resolvedUrl("../../../assets/aiproviders/google.svg"),
                                     description: item.description || "Google Gemini Model",
-                                    endpoint: "http://127.0.0.1:4000/v1" // Point to LiteLLM
-                                    ,
-                                    model: "gemini/" + id // Prefix for LiteLLM
-                                    ,
-                                    api_format: "Google",
-                                    requires_key: false // Auth handled by LiteLLM environment
+                                    endpoint: "https://generativelanguage.googleapis.com/v1beta",
+                                    model: id,
+                                    provider: "gemini",
+                                    requires_key: true,
+                                    key_id: "GEMINI_API_KEY"
                                 });
-                                if (m)
-                                    newModels.push(m);
+                                if (m) newModels.push(m);
                             }
                         }
                         mergeModels(newModels);
@@ -792,9 +829,51 @@ Singleton {
         }
     }
 
-    // fetchProcessOpenAi removed as it's redundant (LiteLLM usually covers it via standard endpoint or config)
-    // But if we wanted to fetch directly from OpenAI we could. For now let's rely on LiteLLM config for pure OpenAI
-    // or we could add it back if needed. The user complained about seeing ONLY OpenAI, so adding other providers is key.
+    Process {
+        id: fetchProcessOpenAI
+        stdout: StdioCollector {
+            id: fetchOpenAIOut
+        }
+        onExited: exitCode => {
+            if (exitCode === 0) {
+                try {
+                    let data = JSON.parse(fetchOpenAIOut.text);
+                    if (data.data) {
+                        let newModels = [];
+                        let allowed = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "o1", "o1-mini", "o1-preview", "o3-mini"];
+                        for (let i = 0; i < data.data.length; i++) {
+                            let item = data.data[i];
+                            let id = item.id;
+                            let isAllowed = false;
+                            for (let j = 0; j < allowed.length; j++) {
+                                if (id === allowed[j] || id.startsWith(allowed[j] + "-")) {
+                                    isAllowed = true;
+                                    break;
+                                }
+                            }
+                            if (isAllowed) {
+                                let m = aiModelFactory.createObject(root, {
+                                    name: id,
+                                    icon: Qt.resolvedUrl("../../../assets/aiproviders/openai.svg"),
+                                    description: "OpenAI Model",
+                                    endpoint: "https://api.openai.com",
+                                    model: id,
+                                    provider: "openai",
+                                    requires_key: true,
+                                    key_id: "OPENAI_API_KEY"
+                                });
+                                if (m) newModels.push(m);
+                            }
+                        }
+                        mergeModels(newModels);
+                    }
+                } catch (e) {
+                    console.log("OpenAI fetch error: " + e);
+                }
+            }
+            checkFetchCompletion();
+        }
+    }
 
     Process {
         id: fetchProcessMistral
@@ -814,15 +893,13 @@ Singleton {
                                 name: id,
                                 icon: Qt.resolvedUrl("../../../assets/aiproviders/mistral.svg"),
                                 description: "Mistral Model",
-                                endpoint: "http://127.0.0.1:4000/v1" // Point to LiteLLM
-                                ,
-                                model: "mistral/" + id // Prefix for LiteLLM
-                                ,
-                                api_format: "Mistral",
-                                requires_key: false
+                                endpoint: "https://api.mistral.ai/v1/chat/completions",
+                                model: id,
+                                provider: "mistral",
+                                requires_key: true,
+                                key_id: "MISTRAL_API_KEY"
                             });
-                            if (m)
-                                newModels.push(m);
+                            if (m) newModels.push(m);
                         }
                         mergeModels(newModels);
                     }
@@ -835,38 +912,35 @@ Singleton {
     }
 
     Process {
-        id: fetchProcessOpenRouter
+        id: fetchProcessGroq
         stdout: StdioCollector {
-            id: fetchOpenRouterOut
+            id: fetchGroqOut
         }
         onExited: exitCode => {
             if (exitCode === 0) {
                 try {
-                    let data = JSON.parse(fetchOpenRouterOut.text);
+                    let data = JSON.parse(fetchGroqOut.text);
                     if (data.data) {
                         let newModels = [];
-                        let limit = 30; // Increased limit
-                        for (let i = 0; i < Math.min(data.data.length, limit); i++) {
+                        for (let i = 0; i < data.data.length; i++) {
                             let item = data.data[i];
                             let id = item.id;
                             let m = aiModelFactory.createObject(root, {
-                                name: item.name || id,
-                                icon: id.includes("deepseek") ? Qt.resolvedUrl("../../../assets/aiproviders/deepseek.svg") : (id.includes("anthropic") ? Qt.resolvedUrl("../../../assets/aiproviders/anthropic.svg") : (id.includes("perplexity") ? Qt.resolvedUrl("../../../assets/aiproviders/perplexity.svg") : Qt.resolvedUrl("../../../assets/aiproviders/openrouter.svg"))),
-                                description: "OpenRouter: " + id,
-                                endpoint: "http://127.0.0.1:4000/v1" // Point to LiteLLM
-                                ,
-                                model: "openrouter/" + id // Prefix for LiteLLM
-                                ,
-                                api_format: "OpenRouter",
-                                requires_key: false
+                                name: id,
+                                icon: Qt.resolvedUrl("../../../assets/aiproviders/groq.svg"),
+                                description: "Groq Model",
+                                endpoint: "https://api.groq.com/openai/v1/chat/completions",
+                                model: id,
+                                provider: "groq",
+                                requires_key: true,
+                                key_id: "GROQ_API_KEY"
                             });
-                            if (m)
-                                newModels.push(m);
+                            if (m) newModels.push(m);
                         }
                         mergeModels(newModels);
                     }
                 } catch (e) {
-                    console.log("OpenRouter fetch error: " + e);
+                    console.log("Groq fetch error: " + e);
                 }
             }
             checkFetchCompletion();
@@ -890,58 +964,17 @@ Singleton {
                                 name: item.name,
                                 icon: Qt.resolvedUrl("../../../assets/aiproviders/ollama.svg"),
                                 description: "Local Ollama Model",
-                                endpoint: "http://127.0.0.1:4000/v1" // Point to LiteLLM
-                                ,
-                                model: "ollama/" + item.name // Prefix for LiteLLM
-                                ,
-                                api_format: "Ollama",
+                                endpoint: "http://127.0.0.1:11434",
+                                model: item.name,
+                                provider: "ollama",
                                 requires_key: false
                             });
-                            if (m)
-                                newModels.push(m);
+                            if (m) newModels.push(m);
                         }
                         mergeModels(newModels);
                     }
                 } catch (e) {
                     console.log("Ollama fetch error: " + e);
-                }
-            }
-            checkFetchCompletion();
-        }
-    }
-
-    Process {
-        id: fetchProcessGithub
-        stdout: StdioCollector {
-            id: fetchGithubOut
-        }
-        onExited: exitCode => {
-            if (exitCode === 0) {
-                try {
-                    let data = JSON.parse(fetchGithubOut.text);
-                    if (data.data) {
-                        let newModels = [];
-                        for (let i = 0; i < data.data.length; i++) {
-                            let item = data.data[i];
-                            let id = item.id;
-                            let m = aiModelFactory.createObject(root, {
-                                name: id + " (GitHub)",
-                                icon: Qt.resolvedUrl("../../../assets/aiproviders/github.svg"),
-                                description: "GitHub Model via Azure",
-                                endpoint: "http://127.0.0.1:4000/v1" // Point to LiteLLM
-                                ,
-                                model: "azure/" + id // Prefix for LiteLLM (GitHub models usually use azure provider in LiteLLM)
-                                ,
-                                api_format: "GitHub",
-                                requires_key: false
-                            });
-                            if (m)
-                                newModels.push(m);
-                        }
-                        mergeModels(newModels);
-                    }
-                } catch (e) {
-                    console.log("GitHub fetch error: " + e);
                 }
             }
             checkFetchCompletion();
@@ -954,37 +987,24 @@ Singleton {
             fetchingModels = false;
             pendingFetches = 0;
 
-            // Try to restore user preference one last time with full list
             tryRestore();
 
-            // Auto-select first model if restoration failed and nothing is selected
             if (!currentModel && models.length > 0) {
                 currentModel = models[0];
-                isRestored = true; // Mark as settled so future changes are saved
+                isRestored = true;
             } else if (!isRestored && currentModel) {
-                // Current model exists (maybe default) but restoration wasn't explicit match
                 isRestored = true;
             }
         }
     }
 
     function mergeModels(newModels) {
-        // Create a map of existing models by name to avoid duplicates
-        let existingMap = {};
-        for (let i = 0; i < models.length; i++) {
-            existingMap[models[i].name] = true;
-        }
-
         let updatedList = [];
-        // Keep hardcoded/existing models first? Or allow overwriting?
-        // Let's keep existing ones and append new ones.
-        for (let i = 0; i < models.length; i++) {
+        for (let i = 0; i < models.length; i++)
             updatedList.push(models[i]);
-        }
 
         for (let i = 0; i < newModels.length; i++) {
             let m = newModels[i];
-            // Simple duplicate check by name or model ID
             let isDuplicate = false;
             for (let j = 0; j < updatedList.length; j++) {
                 if (updatedList[j].model === m.model) {
@@ -992,15 +1012,12 @@ Singleton {
                     break;
                 }
             }
-
-            if (!isDuplicate) {
+            if (!isDuplicate)
                 updatedList.push(m);
-            }
         }
 
         models = updatedList;
 
-        // Try to restore as soon as new models arrive
         if (!isRestored)
             tryRestore();
     }

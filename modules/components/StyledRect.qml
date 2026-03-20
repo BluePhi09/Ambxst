@@ -54,13 +54,37 @@ ClippingRectangle {
     readonly property real rectOpacity: backgroundOpacity >= 0 ? backgroundOpacity : variantConfig.opacity
 
     // Check if gradient is actually a single color (optimization: treat as solid)
-    // A gradient with 1 stop is effectively a solid color - no shader needed
     readonly property bool isSingleColorGradient: gradientStops && gradientStops.length === 1
     readonly property color singleGradientColor: isSingleColorGradient ? Config.resolveColor(gradientStops[0][0]) : "transparent"
 
-    // Use cached gradient texture only for real gradients (2+ stops)
-    readonly property bool needsGradientTexture: (gradientType === "linear" || gradientType === "radial") && !isSingleColorGradient
-    readonly property var cachedGradientTexture: needsGradientTexture ? GradientCache.getTexture(gradientStops) : null
+    // Whether we need a multi-stop gradient shader
+    readonly property bool needsGradientShader: (gradientType === "linear" || gradientType === "radial") && !isSingleColorGradient && gradientStops && gradientStops.length >= 2
+
+    // Number of active stops (clamped to max 8)
+    readonly property int numGradientStops: gradientStops ? Math.min(gradientStops.length, 8) : 0
+
+    // Resolve gradient stops into vec4 color array for shader uniforms
+    function resolveStopColor(index) {
+        if (!gradientStops || index >= gradientStops.length) return Qt.vector4d(0,0,0,0);
+        const resolved = Config.resolveColor(gradientStops[index][0]);
+        // Qt.color() ensures hex strings become proper color objects with .r/.g/.b/.a
+        const c = Qt.color(resolved);
+        return Qt.vector4d(c.r, c.g, c.b, c.a);
+    }
+
+    // Pack stop positions into two vec4s (positions 0-3 in first, 4-7 in second)
+    readonly property vector4d stopPositionsPack0: Qt.vector4d(
+        gradientStops && gradientStops.length > 0 ? gradientStops[0][1] : 0,
+        gradientStops && gradientStops.length > 1 ? gradientStops[1][1] : 0,
+        gradientStops && gradientStops.length > 2 ? gradientStops[2][1] : 0,
+        gradientStops && gradientStops.length > 3 ? gradientStops[3][1] : 0
+    )
+    readonly property vector4d stopPositionsPack1: Qt.vector4d(
+        gradientStops && gradientStops.length > 4 ? gradientStops[4][1] : 0,
+        gradientStops && gradientStops.length > 5 ? gradientStops[5][1] : 0,
+        gradientStops && gradientStops.length > 6 ? gradientStops[6][1] : 0,
+        gradientStops && gradientStops.length > 7 ? gradientStops[7][1] : 0
+    )
 
     radius: variantConfig.radius !== undefined ? variantConfig.radius : Styling.radius(0)
 
@@ -88,10 +112,10 @@ ClippingRectangle {
         }
     }
 
-    // Linear gradient - uses cached texture
+    // Linear gradient - procedural (no texture)
     Loader {
         anchors.fill: parent
-        active: root.gradientType === "linear" && root.cachedGradientTexture !== null
+        active: root.gradientType === "linear" && root.needsGradientShader
 
         sourceComponent: ShaderEffect {
             opacity: root.rectOpacity
@@ -99,17 +123,29 @@ ClippingRectangle {
             property real angle: root.gradientAngle
             property real canvasWidth: width
             property real canvasHeight: height
-            property var gradTex: root.cachedGradientTexture
+            property int numStops: root.numGradientStops
+
+            property vector4d stopColor0: root.resolveStopColor(0)
+            property vector4d stopColor1: root.resolveStopColor(1)
+            property vector4d stopColor2: root.resolveStopColor(2)
+            property vector4d stopColor3: root.resolveStopColor(3)
+            property vector4d stopColor4: root.resolveStopColor(4)
+            property vector4d stopColor5: root.resolveStopColor(5)
+            property vector4d stopColor6: root.resolveStopColor(6)
+            property vector4d stopColor7: root.resolveStopColor(7)
+
+            property vector4d stopPositionsPack0: root.stopPositionsPack0
+            property vector4d stopPositionsPack1: root.stopPositionsPack1
 
             vertexShader: "linear_gradient.vert.qsb"
             fragmentShader: "linear_gradient.frag.qsb"
         }
     }
 
-    // Radial gradient - uses cached texture
+    // Radial gradient - procedural (no texture)
     Loader {
         anchors.fill: parent
-        active: root.gradientType === "radial" && root.cachedGradientTexture !== null
+        active: root.gradientType === "radial" && root.needsGradientShader
 
         sourceComponent: ShaderEffect {
             opacity: root.rectOpacity
@@ -118,7 +154,19 @@ ClippingRectangle {
             property real centerY: root.gradientCenterY
             property real canvasWidth: width
             property real canvasHeight: height
-            property var gradTex: root.cachedGradientTexture
+            property int numStops: root.numGradientStops
+
+            property vector4d stopColor0: root.resolveStopColor(0)
+            property vector4d stopColor1: root.resolveStopColor(1)
+            property vector4d stopColor2: root.resolveStopColor(2)
+            property vector4d stopColor3: root.resolveStopColor(3)
+            property vector4d stopColor4: root.resolveStopColor(4)
+            property vector4d stopColor5: root.resolveStopColor(5)
+            property vector4d stopColor6: root.resolveStopColor(6)
+            property vector4d stopColor7: root.resolveStopColor(7)
+
+            property vector4d stopPositionsPack0: root.stopPositionsPack0
+            property vector4d stopPositionsPack1: root.stopPositionsPack1
 
             vertexShader: "radial_gradient.vert.qsb"
             fragmentShader: "radial_gradient.frag.qsb"

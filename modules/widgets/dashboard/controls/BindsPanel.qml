@@ -34,7 +34,7 @@ Item {
                 const keyObj = bind.keys[k];
                 const mods = keyObj.modifiers && keyObj.modifiers.length > 0 ? keyObj.modifiers.join(" ") : "";
                 const key = keyObj.key || "";
-                const command = `hyprctl keyword unbind ${mods},${key}`;
+                const command = `axctl config unbind-key ${mods},${key}`;
                 console.log("BindsPanel: Unbinding keybind:", command);
                 unbindProcess.command = ["sh", "-c", command];
                 unbindProcess.running = true;
@@ -43,7 +43,7 @@ Item {
             // Old format fallback
             const mods = bind.modifiers && bind.modifiers.length > 0 ? bind.modifiers.join(" ") : "";
             const key = bind.key || "";
-            const command = `hyprctl keyword unbind ${mods},${key}`;
+            const command = `axctl config unbind-key ${mods},${key}`;
             console.log("BindsPanel: Unbinding keybind:", command);
             unbindProcess.command = ["sh", "-c", command];
             unbindProcess.running = true;
@@ -60,7 +60,7 @@ Item {
     // Edit form state - new format with keys[] and actions[]
     property string editName: ""
     property var editKeys: []  // Array of { modifiers: [], key: "" }
-    property var editActions: []  // Array of { dispatcher: "", argument: "", flags: "", compositor: { type: "", layouts: [] } }
+    property var editActions: []  // Array of { dispatcher: "", argument: "", flags: "", layouts: [] }
     property int currentKeyPage: 0  // Current key page index
     property int currentActionPage: 0  // Current action page index
 
@@ -72,13 +72,7 @@ Item {
     property string editDispatcher: editActions.length > currentActionPage ? (editActions[currentActionPage].dispatcher || "") : ""
     property string editArgument: editActions.length > currentActionPage ? (editActions[currentActionPage].argument || "") : ""
     property string editFlags: editActions.length > currentActionPage ? (editActions[currentActionPage].flags || "") : ""
-    property var editCompositor: editActions.length > currentActionPage ? (editActions[currentActionPage].compositor || {
-            "type": "hyprland",
-            "layouts": []
-        }) : {
-        "type": "hyprland",
-        "layouts": []
-    }
+    property var editLayouts: editActions.length > currentActionPage ? (editActions[currentActionPage].layouts || []) : []
 
     readonly property var availableModifiers: ["SUPER", "SHIFT", "CTRL", "ALT"]
     readonly property var availableLayouts: ["dwindle", "master", "scrolling"]
@@ -102,7 +96,7 @@ Item {
     }
 
     // Helper to update current action in editActions array
-    function updateCurrentAction(dispatcher, argument, flags, compositor) {
+    function updateCurrentAction(dispatcher, argument, flags, layouts) {
         if (editActions.length <= currentActionPage)
             return;
         let newActions = [];
@@ -112,7 +106,7 @@ Item {
                     "dispatcher": dispatcher,
                     "argument": argument,
                     "flags": flags,
-                    "compositor": compositor
+                    "layouts": layouts
                 });
             } else {
                 newActions.push(editActions[i]);
@@ -123,10 +117,10 @@ Item {
 
     // Helper to check if a layout is selected for current action
     function hasLayout(layout) {
-        const comp = root.editCompositor;
-        if (!comp || !comp.layouts || comp.layouts.length === 0)
+        const layouts = root.editLayouts;
+        if (!layouts || layouts.length === 0)
             return false;
-        return comp.layouts.indexOf(layout) !== -1;
+        return layouts.indexOf(layout) !== -1;
     }
 
     // Helper to toggle a layout for current action
@@ -135,11 +129,7 @@ Item {
             return;
 
         const currentAction = root.editActions[root.currentActionPage];
-        let comp = currentAction.compositor || {
-            "type": "hyprland",
-            "layouts": []
-        };
-        let layouts = comp.layouts ? comp.layouts.slice() : [];
+        let layouts = currentAction.layouts ? currentAction.layouts.slice() : [];
 
         const idx = layouts.indexOf(layout);
         if (idx !== -1) {
@@ -148,10 +138,7 @@ Item {
             layouts.push(layout);
         }
 
-        updateCurrentAction(currentAction.dispatcher || "", currentAction.argument || "", currentAction.flags || "", {
-            "type": "hyprland",
-            "layouts": layouts
-        });
+        updateCurrentAction(currentAction.dispatcher || "", currentAction.argument || "", currentAction.flags || "", layouts);
     }
 
     // Add a new key page
@@ -188,10 +175,7 @@ Item {
             "dispatcher": "",
             "argument": "",
             "flags": "",
-            "compositor": {
-                "type": "hyprland",
-                "layouts": []
-            }
+            "layouts": []
         });
         editActions = newActions;
         currentActionPage = newActions.length - 1;
@@ -474,10 +458,7 @@ Item {
                     "dispatcher": "",
                     "argument": "",
                     "flags": "",
-                    "compositor": {
-                        "type": "hyprland",
-                        "layouts": []
-                    }
+                    "layouts": []
                 }
             ],
             "enabled": true
@@ -733,9 +714,9 @@ Item {
                         let allLayouts = [];
                         for (let i = 0; i < modelData.actions.length; i++) {
                             const action = modelData.actions[i];
-                            if (action.compositor && action.compositor.layouts) {
-                                for (let j = 0; j < action.compositor.layouts.length; j++) {
-                                    const layout = action.compositor.layouts[j];
+                            if (action.layouts) {
+                                for (let j = 0; j < action.layouts.length; j++) {
+                                    const layout = action.layouts[j];
                                     if (allLayouts.indexOf(layout) === -1) {
                                         allLayouts.push(layout);
                                     }
@@ -1545,10 +1526,7 @@ Item {
                                         if (root.editActions.length > root.currentActionPage) {
                                             const currentAction = root.editActions[root.currentActionPage];
                                             if (currentAction.dispatcher !== text) {
-                                                root.updateCurrentAction(text, currentAction.argument || "", currentAction.flags || "", currentAction.compositor || {
-                                                    "type": "hyprland",
-                                                    "layouts": []
-                                                });
+                                                root.updateCurrentAction(text, currentAction.argument || "", currentAction.flags || "", currentAction.layouts || []);
                                             }
                                         }
                                     }
@@ -1595,10 +1573,7 @@ Item {
                                         if (root.editActions.length > root.currentActionPage) {
                                             const currentAction = root.editActions[root.currentActionPage];
                                             if (currentAction.argument !== text) {
-                                                root.updateCurrentAction(currentAction.dispatcher || "", text, currentAction.flags || "", currentAction.compositor || {
-                                                    "type": "hyprland",
-                                                    "layouts": []
-                                                });
+                                                root.updateCurrentAction(currentAction.dispatcher || "", text, currentAction.flags || "", currentAction.layouts || []);
                                             }
                                         }
                                     }
@@ -1643,10 +1618,7 @@ Item {
                                         if (root.editActions.length > root.currentActionPage) {
                                             const currentAction = root.editActions[root.currentActionPage];
                                             if (currentAction.flags !== text) {
-                                                root.updateCurrentAction(currentAction.dispatcher || "", currentAction.argument || "", text, currentAction.compositor || {
-                                                    "type": "hyprland",
-                                                    "layouts": []
-                                                });
+                                                root.updateCurrentAction(currentAction.dispatcher || "", currentAction.argument || "", text, currentAction.layouts || []);
                                             }
                                         }
                                     }
@@ -1669,10 +1641,10 @@ Item {
                             }
 
                             // =====================
-                            // LAYOUT SELECTOR (for Hyprland)
+                            // LAYOUT SELECTOR (for AxctlService)
                             // =====================
                             Text {
-                                text: "Layouts (Hyprland)"
+                                text: "Layouts (AxctlService)"
                                 font.family: Config.theme.font
                                 font.pixelSize: Styling.fontSize(-1)
                                 font.weight: Font.Medium

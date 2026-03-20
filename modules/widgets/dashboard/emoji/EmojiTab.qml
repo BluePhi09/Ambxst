@@ -246,13 +246,15 @@ Rectangle {
     }
 
     function loadRecentEmojis() {
-        recentProcess.command = ["bash", "-c", "cat " + Quickshell.cacheDir + "/emojis.json 2>/dev/null || echo '[]'"];
+        // QUICKSHELL-GIT: recentProcess.command = ["bash", "-c", "cat " + Quickshell.cacheDir + "/emojis.json 2>/dev/null || echo '[]'"];
+        recentProcess.command = ["bash", "-c", "cat " + Quickshell.env("HOME") + "/.cache/ambxst" + "/emojis.json 2>/dev/null || echo '[]'"];
         recentProcess.running = true;
     }
 
     function saveRecentEmojis() {
         var jsonData = JSON.stringify(recentEmojis, null, 2);
-        saveProcess.command = ["bash", "-c", "echo '" + jsonData.replace(/'/g, "'\\''") + "' > " + Quickshell.cacheDir + "/emojis.json"];
+        // QUICKSHELL-GIT: saveProcess.command = ["bash", "-c", "echo '" + jsonData.replace(/'/g, "'\\''") + "' > " + Quickshell.cacheDir + "/emojis.json"];
+        saveProcess.command = ["bash", "-c", "echo '" + jsonData.replace(/'/g, "'\\''") + "' > " + Quickshell.env("HOME") + "/.cache/ambxst" + "/emojis.json"];
         saveProcess.running = true;
     }
 

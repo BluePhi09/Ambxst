@@ -12,10 +12,20 @@ QtObject {
     property string lastError: ""
     property bool canRecordDirectly: true // Optimistic default
 
+    property bool _initialized: false
+
+    function initialize() {
+        if (_initialized) return;
+        _initialized = true;
+        checkCapabilitiesProcess.running = true;
+        xdgVideosProcess.running = true;
+        checkProcess.running = true;
+    }
+
     property Process checkCapabilitiesProcess: Process {
         id: checkCapabilitiesProcess
         command: ["bash", "-c", "if [ -f /run/current-system/sw/bin/nixos-version ]; then if [[ \"$(type -p gpu-screen-recorder)\" == *\"/run/wrappers/bin/\"* ]]; then echo true; else echo false; fi; else echo true; fi"]
-        running: true
+        running: false
         stdout: StdioCollector {
             onTextChanged: {
                 root.canRecordDirectly = (text.trim() === "true");
@@ -29,7 +39,7 @@ QtObject {
     property Process xdgVideosProcess: Process {
         id: xdgVideosProcess
         command: ["bash", "-c", "xdg-user-dir VIDEOS"]
-        running: true // Run at startup
+        running: false
         stdout: StdioCollector {
             onTextChanged: {
                 // Handled in onExited
@@ -48,11 +58,11 @@ QtObject {
         }
     }
 
-    // Poll
+    // Poll — only when actively recording
     property Timer statusTimer: Timer {
         interval: 1000
         repeat: true
-        running: !SuspendManager.isSuspending
+        running: root.isRecording && !SuspendManager.isSuspending
         onTriggered: {
             checkProcess.running = true;
         }
@@ -143,6 +153,7 @@ QtObject {
         onExited: exitCode => {
             notifyStartProcess.running = true;
             startProcess.running = true;
+            root.isRecording = true;
         }
     }
 

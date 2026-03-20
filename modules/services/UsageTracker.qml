@@ -7,7 +7,8 @@ Singleton {
     id: root
 
     // usage.json path
-    property string usageFilePath: Quickshell.cachePath("usage.json")
+    // QUICKSHELL-GIT: property string usageFilePath: Quickshell.cachePath("usage.json")
+    property string usageFilePath: Quickshell.env("HOME") + "/.cache/ambxst/usage.json"
 
     // Cache: { appId: { count, lastUsed } }
     property var usageData: ({})
@@ -28,7 +29,7 @@ Singleton {
         command: ["bash", "-c", "mkdir -p \"$(dirname '" + root.usageFilePath + "')\" && if [ ! -f '" + root.usageFilePath + "' ]; then echo '{}' > '" + root.usageFilePath + "'; fi"]
         onExited: {
             root.fileReady = true;
-            usageFile.reload();
+            Qt.callLater(() => usageFile.reload());
         }
     }
 
@@ -39,7 +40,7 @@ Singleton {
     }
 
     Component.onCompleted: {
-        usageFile.reload();
+        Qt.callLater(() => usageFile.reload());
     }
 
     // Load usage data from file

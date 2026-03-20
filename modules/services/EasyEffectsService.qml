@@ -61,11 +61,19 @@ Singleton {
         Quickshell.execDetached(["easyeffects"]);
     }
 
+    property bool _initialized: false
+
+    function initialize() {
+        if (_initialized) return;
+        _initialized = true;
+        checkAvailableProcess.running = true;
+    }
+
     // Check EasyEffects availability
     Process {
         id: checkAvailableProcess
         command: ["which", "easyeffects"]
-        running: true
+        running: false
         onExited: (exitCode, exitStatus) => {
             root.available = (exitCode === 0);
             if (root.available) {
@@ -82,7 +90,7 @@ Singleton {
         id: bypassStateProcess
         command: ["easyeffects", "-b", "3"]
         running: false
-        environment: ({ LANG: "C", LC_ALL: "C" })
+        environment: ({ LANG: "C.UTF-8", LC_ALL: "C.UTF-8" })
         stdout: SplitParser {
             onRead: data => {
                 const val = data.trim();
@@ -127,7 +135,7 @@ Singleton {
         command: ["easyeffects", "-p"]
         running: false
         property string buffer: ""
-        environment: ({ LANG: "C", LC_ALL: "C" })
+        environment: ({ LANG: "C.UTF-8", LC_ALL: "C.UTF-8" })
         stdout: SplitParser {
             onRead: data => {
                 presetsProcess.buffer += data + "\n";
@@ -178,7 +186,7 @@ Singleton {
         command: ["easyeffects", "-a"]
         running: false
         property string buffer: ""
-        environment: ({ LANG: "C", LC_ALL: "C" })
+        environment: ({ LANG: "C.UTF-8", LC_ALL: "C.UTF-8" })
         stdout: SplitParser {
             onRead: data => {
                 activePresetsProcess.buffer += data + "\n";

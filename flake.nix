@@ -8,9 +8,14 @@
       url = "git+https://git.outfoxxed.me/outfoxxed/quickshell";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    axctl = {
+      url = "github:Axenide/axctl";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, quickshell, ... }:
+  outputs = { self, nixpkgs, quickshell, axctl, ... }:
     let
       ambxstLib = import ./nix/lib.nix { inherit nixpkgs; };
     in {
@@ -30,7 +35,7 @@
           lib = nixpkgs.lib;
 
           Ambxst = import ./nix/packages {
-            inherit pkgs lib self system quickshell ambxstLib;
+            inherit pkgs lib self system quickshell axctl;
           };
         in {
           default = Ambxst;

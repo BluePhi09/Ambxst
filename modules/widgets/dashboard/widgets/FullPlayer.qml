@@ -255,14 +255,17 @@ StyledRect {
                             color: Colors.surface
                             visible: !player.hasArtwork && player.wallpaperPath === ""
 
-                            WavyLine {
+                            Loader {
+                                active: parent.visible && Config.performance.wavyLine
                                 anchors.centerIn: parent
                                 width: parent.width * 0.6
                                 height: 20
-                                color: Colors.primary
-                                frequency: 2
-                                amplitudeMultiplier: 2
-                                visible: Config.performance.wavyLine
+                                sourceComponent: WavyLine {
+                                    anchors.fill: parent
+                                    color: Colors.primary
+                                    frequency: 2
+                                    amplitudeMultiplier: 2
+                                }
                             }
                         }
                     }

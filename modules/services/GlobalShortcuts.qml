@@ -2,7 +2,6 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell.Hyprland._GlobalShortcuts
 import qs.modules.globals
 import qs.modules.services
 import qs.config
@@ -43,11 +42,11 @@ QtObject {
             // Dashboard
             case "dashboard": toggleDashboardTab(0); break;
             case "wallpapers": toggleDashboardTab(1); break;
-            case "assistant": toggleDashboardTab(3); break;
+            case "assistant": toggleAssistant(); break;
             case "dashboard-widgets": toggleDashboardTab(0); break;
             case "dashboard-wallpapers": toggleDashboardTab(1); break;
             case "dashboard-kanban": toggleDashboardTab(2); break;
-            case "dashboard-assistant": toggleDashboardTab(3); break;
+            case "dashboard-assistant": toggleAssistant(); break;
             case "dashboard-controls": toggleSettings(); break;
 
             // System
@@ -55,9 +54,10 @@ QtObject {
             case "powermenu": toggleSimpleModule("powermenu"); break;
             case "tools": toggleSimpleModule("tools"); break;
             case "config": toggleSettings(); break;
-            case "screenshot": GlobalStates.screenshotToolVisible = true; break;
-            case "screenrecord": GlobalStates.screenRecordToolVisible = true; break;
+            case "screenshot": Screenshot.initialize(); GlobalStates.screenshotToolVisible = true; break;
+            case "screenrecord": ScreenRecorder.initialize(); GlobalStates.screenRecordToolVisible = true; break;
             case "lens": 
+                Screenshot.initialize();
                 Screenshot.captureMode = "lens";
                 GlobalStates.screenshotToolVisible = true;
                 break;
@@ -186,6 +186,9 @@ QtObject {
         }
     }
 
+    function toggleAssistant() {
+        GlobalStates.toggleAssistant();
+    }
     function seekActivePlayer(offset) {
         const player = MprisController.activePlayer;
         if (!player || !player.canSeek) {
@@ -197,141 +200,5 @@ QtObject {
                 : Number.MAX_SAFE_INTEGER;
         const clamped = Math.max(0, Math.min(maxLength, player.position + offset));
         player.position = clamped;
-    }
-
-    property GlobalShortcut shortcutOverview: GlobalShortcut {
-        appid: root.appId
-        name: "overview"
-        description: "Toggle window overview"
-        onPressed: toggleSimpleModule("overview")
-    }
-
-    property GlobalShortcut shortcutPowermenu: GlobalShortcut {
-        appid: root.appId
-        name: "powermenu"
-        description: "Toggle power menu"
-        onPressed: toggleSimpleModule("powermenu")
-    }
-
-    property GlobalShortcut shortcutTools: GlobalShortcut {
-        appid: root.appId
-        name: "tools"
-        description: "Toggle tools menu"
-        onPressed: toggleSimpleModule("tools")
-    }
-
-    property GlobalShortcut shortcutScreenshot: GlobalShortcut {
-        appid: root.appId
-        name: "screenshot"
-        description: "Open screenshot tool"
-        onPressed: GlobalStates.screenshotToolVisible = true
-    }
-
-    property GlobalShortcut shortcutScreenrecord: GlobalShortcut {
-        appid: root.appId
-        name: "screenrecord"
-        description: "Open screen record tool"
-        onPressed: GlobalStates.screenRecordToolVisible = true
-    }
-
-    property GlobalShortcut shortcutLens: GlobalShortcut {
-        appid: root.appId
-        name: "lens"
-        description: "Open Google Lens (screenshot)"
-        onPressed: {
-            Screenshot.captureMode = "lens";
-            GlobalStates.screenshotToolVisible = true;
-        }
-    }
-
-    // Launcher standalone shortcuts
-    property GlobalShortcut shortcutLauncher: GlobalShortcut {
-        appid: root.appId
-        name: "launcher"
-        description: "Open standalone launcher"
-        onPressed: toggleLauncher()
-    }
-
-    property GlobalShortcut shortcutClipboard: GlobalShortcut {
-        appid: root.appId
-        name: "clipboard"
-        description: "Open launcher clipboard"
-        onPressed: toggleLauncherWithPrefix(1, Config.prefix.clipboard + " ")
-    }
-
-    property GlobalShortcut shortcutEmoji: GlobalShortcut {
-        appid: root.appId
-        name: "emoji"
-        description: "Open launcher emoji picker"
-        onPressed: toggleLauncherWithPrefix(2, Config.prefix.emoji + " ")
-    }
-
-    property GlobalShortcut shortcutTmux: GlobalShortcut {
-        appid: root.appId
-        name: "tmux"
-        description: "Open launcher tmux sessions"
-        onPressed: toggleLauncherWithPrefix(3, Config.prefix.tmux + " ")
-    }
-
-    property GlobalShortcut shortcutNotes: GlobalShortcut {
-        appid: root.appId
-        name: "notes"
-        description: "Open launcher notes"
-        onPressed: toggleLauncherWithPrefix(4, Config.prefix.notes + " ")
-    }
-
-    // Dashboard shortcuts
-    property GlobalShortcut shortcutDashboard: GlobalShortcut {
-        appid: root.appId
-        name: "dashboard"
-        description: "Open dashboard widgets tab"
-        onPressed: toggleDashboardTab(0)
-    }
-
-    property GlobalShortcut shortcutWallpapers: GlobalShortcut {
-        appid: root.appId
-        name: "wallpapers"
-        description: "Open dashboard wallpapers tab"
-        onPressed: toggleDashboardTab(1)
-    }
-
-    property GlobalShortcut shortcutAssistant: GlobalShortcut {
-        appid: root.appId
-        name: "assistant"
-        description: "Open dashboard assistant tab"
-        onPressed: toggleDashboardTab(3)
-    }
-
-    property GlobalShortcut shortcutDashboardControls: GlobalShortcut {
-        appid: root.appId
-        name: "dashboard-controls"
-        description: "Open dashboard controls tab"
-        onPressed: toggleSettings()
-    }
-
-    // Media player shortcuts
-    property GlobalShortcut shortcutMediaSeekBackward: GlobalShortcut {
-        appid: root.appId
-        name: "media-seek-backward"
-        description: "Seek backward in media player"
-        onPressed: seekActivePlayer(-mediaSeekStepMs)
-    }
-
-    property GlobalShortcut shortcutMediaSeekForward: GlobalShortcut {
-        appid: root.appId
-        name: "media-seek-forward"
-        description: "Seek forward in media player"
-        onPressed: seekActivePlayer(mediaSeekStepMs)
-    }
-
-    property GlobalShortcut shortcutMediaPlayPause: GlobalShortcut {
-        appid: root.appId
-        name: "media-play-pause"
-        description: "Toggle play/pause in media player"
-        onPressed: {
-            if (MprisController.canTogglePlaying) {
-                MprisController.togglePlaying();
-            }
-        }
     }
 }

@@ -26,7 +26,7 @@ QtObject {
     property string finalPath: ""
     
     property var _activeWorkspaceIds: []
-    property var monitors: [] // List of monitor objects from hyprctl
+    property var monitors: [] // List of monitor objects
     
     // Selection state to synchronize UI across monitors
     property int selectionX: 0
@@ -37,6 +37,14 @@ QtObject {
     // Store monitor scale factor for coordinate scaling
     property real monitorScale: 1.0
 
+    property bool _initialized: false
+
+    function initialize() {
+        if (_initialized) return;
+        _initialized = true;
+        xdgProcess.running = true;
+    }
+
     // Process to resolve XDG_PICTURES_DIR
     property Process xdgProcess: Process {
         id: xdgProcess
@@ -46,7 +54,7 @@ QtObject {
                 // Not running immediately, handled in onExited
              }
         }
-        running: true // Run on load
+        running: false
         onExited: exitCode => {
             if (exitCode === 0) {
                 var dir = xdgProcess.stdout.text.trim()
@@ -93,29 +101,36 @@ QtObject {
     // Process for fetching monitors
     property Process monitorsProcess: Process {
         id: monitorsProcess
-        command: ["hyprctl", "-j", "monitors"]
+        command: ["axctl", "monitor", "list"]
         stdout: StdioCollector {}
         onExited: exitCode => {
             if (exitCode === 0) {
                 try {
                     var rawMonitors = JSON.parse(monitorsProcess.stdout.text)
-                    root.monitors = rawMonitors;
-                    
+                    var normalized = rawMonitors.map(m => ({
+                        id: m.id,
+                        name: m.name,
+                        width: m.width,
+                        height: m.height,
+                        scale: m.scale,
+                        refresh_rate: m.refresh_rate,
+                        focused: m.is_focused,
+                        x: m.metadata ? m.metadata.x : 0,
+                        y: m.metadata ? m.metadata.y : 0,
+                        transform: m.metadata ? m.metadata.transform : 0,
+                        activeWorkspace: m.metadata ? { id: m.metadata.active_workspace } : null
+                    }))
+                    root.monitors = normalized;
                     var ids = []
-                    for (var i = 0; i < rawMonitors.length; i++) {
-                        if (rawMonitors[i].activeWorkspace) {
-                            ids.push(rawMonitors[i].activeWorkspace.id)
+                    for (var i = 0; i < normalized.length; i++) {
+                        if (normalized[i].activeWorkspace) {
+                            ids.push(normalized[i].activeWorkspace.id)
                         }
                     }
                     root._activeWorkspaceIds = ids
-                    
-                    // Freeze already initiated in freezeScreen(), so we don't call it here.
-                    // root.executeFreezeBatch();
-                    
-                    // Also fetch clients for window mode
                     clientsProcess.running = true
 
-                    root.monitorsListReady(rawMonitors)
+                    root.monitorsListReady(normalized)
                 } catch (e) {
                     console.warn("Screenshot: Failed to parse monitors: " + e.message)
                     root.errorOccurred("Failed to parse monitors")
@@ -130,18 +145,31 @@ QtObject {
     // Process for fetching windows
     property Process clientsProcess: Process {
         id: clientsProcess
-        command: ["hyprctl", "-j", "clients"]
+        command: ["axctl", "window", "list"]
         stdout: StdioCollector {}
         onExited: exitCode => {
             if (exitCode === 0) {
                 try {
                     var allClients = JSON.parse(clientsProcess.stdout.text)
                     var activeIds = root._activeWorkspaceIds
+                    var normalizedClients = allClients.map(c => ({
+                        id: c.id,
+                        app_id: c.app_id,
+                        title: c.title,
+                        is_floating: c.is_floating,
+                        is_focused: c.is_focused,
+                        is_fullscreen: c.is_fullscreen,
+                        is_hidden: c.is_hidden,
+                        workspace_id: c.workspace_id,
+                        pinned: c.metadata ? c.metadata.pinned : false,
+                        workspace: { id: c.workspace_id },
+                        at: [c.metadata ? c.metadata.x : 0, c.metadata ? c.metadata.y : 0],
+                        size: [c.metadata ? c.metadata.width : 0, c.metadata ? c.metadata.height : 0]
+                    }))
                     
-                    var filteredClients = allClients.filter(c => {
+                    var filteredClients = normalizedClients.filter(c => {
                         return c.pinned || (activeIds.length > 0 && activeIds.includes(c.workspace.id))
                     })
-                    
                     root.windowListReady(filteredClients)
                 } catch (e) {
                     console.warn("Screenshot: Error processing windows: " + e.message)

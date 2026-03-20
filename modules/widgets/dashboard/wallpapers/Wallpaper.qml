@@ -34,10 +34,14 @@ PanelWindow {
     property bool usingFallback: false
     property bool _wallpaperDirInitialized: false
     property string currentMatugenScheme: wallpaperConfig.adapter.matugenScheme
+    property var perScreenWallpapers: wallpaperConfig.adapter.perScreenWallpapers || {}
+    property string effectiveWallpaper: perScreenWallpapers[currentScreenName] || currentWallpaper
+    property string currentScreenName: wallpaper.screen ? wallpaper.screen.name : ""
     property alias tintEnabled: wallpaperAdapter.tintEnabled
     property int thumbnailsVersion: 0
 
-    readonly property string mpvShaderDir: Quickshell.cacheDir + "/mpv_shaders"
+    // QUICKSHELL-GIT: property string mpvShaderDir: Quickshell.cacheDir + "/mpv_shaders_" + (currentScreenName ? currentScreenName : "ALL")
+    property string mpvShaderDir: Quickshell.env("HOME") + "/.cache/ambxst/mpv_shaders_" + (currentScreenName ? currentScreenName : "ALL")
     property string mpvShaderPath: ""
     property bool mpvShaderReady: false
 
@@ -109,7 +113,8 @@ PanelWindow {
 
         var officialFile = officialColorPresetsDir + "/" + activeColorPreset + "/" + mode;
         var userFile = colorPresetsDir + "/" + activeColorPreset + "/" + mode;
-        var dest = Quickshell.cachePath("colors.json");
+        // QUICKSHELL-GIT: var dest = Quickshell.cachePath("colors.json");
+        var dest = Quickshell.env("HOME") + "/.cache/ambxst/colors.json";
 
         // Try official first, then user. Use bash conditional.
         var cmd = "if [ -f '" + officialFile + "' ]; then cp '" + officialFile + "' '" + dest + "'; else cp '" + userFile + "' '" + dest + "'; fi";
@@ -149,7 +154,8 @@ PanelWindow {
         var relativeDir = pathParts.join('/');
 
         // Build the proxy path
-        var thumbnailPath = Quickshell.cacheDir + "/thumbnails/" + relativeDir + "/" + thumbnailName;
+        // QUICKSHELL-GIT: var thumbnailPath = Quickshell.cacheDir + "/thumbnails/" + relativeDir + "/" + thumbnailName;
+        var thumbnailPath = Quickshell.env("HOME") + "/.cache/ambxst" + "/thumbnails/" + relativeDir + "/" + thumbnailName;
         return thumbnailPath;
     }
 
@@ -194,7 +200,8 @@ PanelWindow {
         // Para videos y GIFs, usar el frame cacheado
         if (fileType === 'video' || fileType === 'gif') {
             var fileName = filePath.split('/').pop();
-            var cachePath = Quickshell.cacheDir + "/lockscreen/" + fileName + ".jpg";
+            // QUICKSHELL-GIT: var cachePath = Quickshell.cacheDir + "/lockscreen/" + fileName + ".jpg";
+            var cachePath = Quickshell.env("HOME") + "/.cache/ambxst" + "/lockscreen/" + fileName + ".jpg";
             return cachePath;
         }
 
@@ -210,7 +217,8 @@ PanelWindow {
         console.log("Generating lockscreen frame for:", filePath);
 
         var scriptPath = decodeURIComponent(Qt.resolvedUrl("../../../../scripts/lockwall.py").toString().replace("file://", ""));
-        var dataPath = Quickshell.cacheDir;
+        // QUICKSHELL-GIT: var dataPath = Quickshell.cacheDir;
+        var dataPath = Quickshell.env("HOME") + "/.cache/ambxst";
 
         lockscreenWallpaperScript.command = ["python3", scriptPath, filePath, dataPath];
 
@@ -273,22 +281,59 @@ PanelWindow {
     // Matugen se ejecuta manualmente en las funciones de cambio
     {}
 
-    function setWallpaper(path) {
+    function setWallpaper(path, targetScreen = null) {
         if (GlobalStates.wallpaperManager && GlobalStates.wallpaperManager !== wallpaper) {
-            GlobalStates.wallpaperManager.setWallpaper(path);
+            GlobalStates.wallpaperManager.setWallpaper(path, targetScreen);
             return;
         }
 
-        console.log("setWallpaper called with:", path);
+        console.log("setWallpaper called with:", path, "for screen:", targetScreen);
         initialLoadCompleted = true;
         var pathIndex = wallpaperPaths.indexOf(path);
         if (pathIndex !== -1) {
-            currentIndex = pathIndex;
-            wallpaperConfig.adapter.currentWall = path;
-            runMatugenForCurrentWallpaper();
+            if (targetScreen) {
+                // If targeting a specific screen, save to perScreenWallpapers instead of currentWall
+                let perScreen = Object.assign({}, wallpaperConfig.adapter.perScreenWallpapers || {});
+                perScreen[targetScreen] = path;
+                wallpaperConfig.adapter.perScreenWallpapers = perScreen;
+                
+                // If this targetScreen is the primary screen, it must update currentWall
+                // because currentWall is exactly the primary monitor fallback.
+                let isPrimary = false;
+                if (GlobalStates.wallpaperManager && GlobalStates.wallpaperManager.screen) {
+                    isPrimary = (targetScreen === GlobalStates.wallpaperManager.screen.name);
+                }
+
+                if (isPrimary || !wallpaperConfig.adapter.currentWall) {
+                    currentIndex = pathIndex;
+                    wallpaperConfig.adapter.currentWall = path;
+                    currentWallpaper = path;
+                    runMatugenForCurrentWallpaper();
+                }
+            } else {
+                // Global fallback target
+                currentIndex = pathIndex;
+                wallpaperConfig.adapter.currentWall = path;
+                currentWallpaper = path;
+                runMatugenForCurrentWallpaper();
+            }
             generateLockscreenFrame(path);
         } else {
             console.warn("Wallpaper path not found in current list:", path);
+        }
+    }
+
+    function clearPerScreenWallpaper(targetScreen) {
+        if (GlobalStates.wallpaperManager && GlobalStates.wallpaperManager !== wallpaper) {
+            GlobalStates.wallpaperManager.clearPerScreenWallpaper(targetScreen);
+            return;
+        }
+        
+        console.log("Clearing per-screen wallpaper for:", targetScreen);
+        let perScreen = Object.assign({}, wallpaperConfig.adapter.perScreenWallpapers || {});
+        if (perScreen[targetScreen]) {
+            delete perScreen[targetScreen];
+            wallpaperConfig.adapter.perScreenWallpapers = perScreen;
         }
     }
 
@@ -352,7 +397,8 @@ PanelWindow {
         }
     }
 
-    property string mpvSocket: "/tmp/ambxst_mpv_socket"
+    // property string mpvSocket: "/tmp/ambxst_mpv_socket"
+    property string mpvSocket: "/tmp/ambxst_mpv_socket_" + (currentScreenName ? currentScreenName : "ALL")
 
     function runMatugenForCurrentWallpaper() {
         if (activeColorPreset) {
@@ -377,7 +423,7 @@ PanelWindow {
             }
 
             // Ejecutar matugen con configuración específica
-            var commandWithConfig = ["matugen", "image", matugenSource, "-c", decodeURIComponent(Qt.resolvedUrl("../../../../assets/matugen/config.toml").toString().replace("file://", "")), "-t", wallpaperConfig.adapter.matugenScheme];
+            var commandWithConfig = ["matugen", "image", matugenSource, "--source-color-index", "0", "-c", decodeURIComponent(Qt.resolvedUrl("../../../../assets/matugen/config.toml").toString().replace("file://", "")), "-t", wallpaperConfig.adapter.matugenScheme];
             if (Config.theme.lightMode) {
                 commandWithConfig.push("-m", "light");
             }
@@ -385,7 +431,7 @@ PanelWindow {
             matugenProcessWithConfig.running = true;
 
             // Ejecutar matugen normal en paralelo
-            var commandNormal = ["matugen", "image", matugenSource, "-t", wallpaperConfig.adapter.matugenScheme];
+            var commandNormal = ["matugen", "image", matugenSource, "--source-color-index", "0", "-t", wallpaperConfig.adapter.matugenScheme];
             if (Config.theme.lightMode) {
                 commandNormal.push("-m", "light");
             }
@@ -415,7 +461,39 @@ PanelWindow {
         mpvIpcProcess.running = true;
     }
 
+    function requestVideoSync() {
+        if (GlobalStates.wallpaperManager !== wallpaper) {
+            if (GlobalStates.wallpaperManager) {
+                GlobalStates.wallpaperManager.requestVideoSync();
+            }
+            return;
+        }
+        videoSyncTimer.restart();
+    }
+
+    Timer {
+        id: videoSyncTimer
+        interval: 1200 // give mpvpaper processes time to spawn and initialize
+        repeat: false
+        onTriggered: {
+            console.log("Broadcasting video sync to all mpvpaper sockets...");
+            mpvSyncProcess.running = true;
+        }
+    }
+
+    Process {
+        id: mpvSyncProcess
+        running: false
+        command: ["bash", "-c", "for sock in /tmp/ambxst_mpv_socket_*; do echo '{ \"command\": [\"set_property\", \"time-pos\", 0] }' | socat - \"$sock\" 2>/dev/null; done"]
+        onExited: code => {
+            console.log("Video sync broadcast completed with code:", code);
+        }
+    }
+
     function updateMpvShader() {
+        if (getFileType(effectiveWallpaper) !== "video") {
+            return;
+        }
         if (!wallpaperAdapter.tintEnabled) {
             updateMpvRuntime(false);
             return;
@@ -564,6 +642,12 @@ PanelWindow {
         updateMpvShader();
     }
 
+    onEffectiveWallpaperChanged: {
+        if (getFileType(effectiveWallpaper) === "video") {
+            shaderUpdateDebounce.restart();
+        }
+    }
+
     Component.onCompleted: {
         // Only the first Wallpaper instance should manage scanning
         // Other instances (for other screens) share the same data via GlobalStates
@@ -600,7 +684,8 @@ PanelWindow {
 
     FileView {
         id: wallpaperConfig
-        path: Quickshell.cachePath("wallpapers.json")
+        // QUICKSHELL-GIT: path: Quickshell.cachePath("wallpapers.json")
+        path: Quickshell.env("HOME") + "/.cache/ambxst/wallpapers.json"
         watchChanges: true
 
         onLoaded: {
@@ -630,6 +715,7 @@ PanelWindow {
             property string matugenScheme: "scheme-tonal-spot"
             property string activeColorPreset: ""
             property bool tintEnabled: false
+            property var perScreenWallpapers: ({})
 
             onActiveColorPresetChanged: {
                 if (wallpaperConfig.adapter.activeColorPreset !== wallpaper.activeColorPreset) {
@@ -691,7 +777,8 @@ PanelWindow {
     Process {
         id: checkWallpapersJson
         running: false
-        command: ["test", "-f", Quickshell.cachePath("wallpapers.json")]
+        // QUICKSHELL-GIT: command: ["test", "-f", Quickshell.cachePath("wallpapers.json")]
+        command: ["test", "-f", Quickshell.env("HOME") + "/.cache/ambxst/wallpapers.json"]
 
         onExited: function (exitCode) {
             if (exitCode !== 0) {
@@ -759,7 +846,8 @@ PanelWindow {
     Process {
         id: thumbnailGeneratorScript
         running: false
-        command: ["python3", decodeURIComponent(Qt.resolvedUrl("../../../../scripts/thumbgen.py").toString().replace("file://", "")), Quickshell.cacheDir + "/wallpapers.json", Quickshell.cacheDir, fallbackDir]
+        // QUICKSHELL-GIT: command: ["python3", decodeURIComponent(Qt.resolvedUrl("../../../../scripts/thumbgen.py").toString().replace("file://", "")), Quickshell.cacheDir + "/wallpapers.json", Quickshell.cacheDir, fallbackDir]
+        command: ["python3", decodeURIComponent(Qt.resolvedUrl("../../../../scripts/thumbgen.py").toString().replace("file://", "")), Quickshell.env("HOME") + "/.cache/ambxst" + "/wallpapers.json", Quickshell.env("HOME") + "/.cache/ambxst", fallbackDir]
 
         stdout: StdioCollector {
             onStreamFinished: {
@@ -1135,7 +1223,7 @@ PanelWindow {
         WallpaperImage {
             id: wallImage
             anchors.fill: parent
-            source: wallpaper.currentWallpaper
+            source: wallpaper.effectiveWallpaper
         }
     }
 
@@ -1146,10 +1234,10 @@ PanelWindow {
         Process {
             id: killMpvpaperProcess
             running: false
-            command: ["pkill", "-f", "mpvpaper"]
+            command: ["pkill", "-f", wallpaper.mpvSocket]
 
             onExited: function (exitCode) {
-                console.log("Killed mpvpaper processes, exit code:", exitCode);
+                console.log("Killed mpvpaper processes on socket", wallpaper.mpvSocket, ", exit code:", exitCode);
             }
         }
 
@@ -1308,6 +1396,7 @@ PanelWindow {
                         if (sourceFile) {
                             console.log("Restarting mpvpaper for:", sourceFile);
                             mpvpaperProcess.running = true;
+                            wallpaper.requestVideoSync();
                         }
                     }
                 }
@@ -1324,6 +1413,7 @@ PanelWindow {
                     if (sourceFile) {
                         console.log("Initial mpvpaper run for:", sourceFile);
                         mpvpaperProcess.running = true;
+                        wallpaper.requestVideoSync();
                     }
                 }
 
@@ -1334,7 +1424,7 @@ PanelWindow {
                 Process {
                     id: mpvpaperProcess
                     running: false
-                    command: sourceFile ? ["bash", scriptPath, sourceFile, (wallpaper.tintEnabled ? wallpaper.mpvShaderPath : "")] : []
+                    command: sourceFile && wallpaper.currentScreenName ? ["bash", scriptPath, sourceFile, (wallpaper.tintEnabled ? wallpaper.mpvShaderPath : ""), wallpaper.currentScreenName] : []
 
                     stdout: StdioCollector {
                         onStreamFinished: {

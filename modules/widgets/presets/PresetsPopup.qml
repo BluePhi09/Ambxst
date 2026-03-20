@@ -4,7 +4,6 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import qs.modules.globals
 import qs.modules.theme
 import qs.modules.services
@@ -25,7 +24,8 @@ PanelWindow {
     color: "transparent"
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    WlrLayershell.namespace: "ambxst:presets"
+    WlrLayershell.keyboardFocus: presetsOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     // Get this screen's visibility state
     readonly property var screenVisibilities: Visibilities.getForScreen(screen.name)
@@ -52,7 +52,7 @@ PanelWindow {
         height: 0
     }
 
-    HyprlandFocusGrab {
+    FocusGrab {
         id: focusGrab
         windows: [presetsPopup]
         active: presetsOpen

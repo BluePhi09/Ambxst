@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
+import qs.modules.services
 import qs.modules.theme
 import qs.modules.components
 import qs.config
@@ -100,7 +100,7 @@ PopupWindow {
     // Focus grab for click-outside-to-close behavior
     property bool focusActive: false
 
-    HyprlandFocusGrab {
+    FocusGrab {
         id: focusGrab
         active: root.visible && root.focusActive
         windows: [root]

@@ -4,7 +4,6 @@ import Quickshell.Widgets
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import Quickshell.Services.Mpris
 import qs.modules.theme
 import qs.modules.components
@@ -247,7 +246,7 @@ Rectangle {
                         property real brightnessValue: 0
                         property var currentMonitor: {
                             if (Brightness.monitors.length > 0) {
-                                let focusedName = Hyprland.focusedMonitor?.name ?? "";
+                                let focusedName = AxctlService.focusedMonitor?.name ?? "";
                                 let found = null;
                                 for (let i = 0; i < Brightness.monitors.length; i++) {
                                     let mon = Brightness.monitors[i];

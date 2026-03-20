@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import qs.modules.services
 import qs.config
 
@@ -50,53 +49,59 @@ Singleton {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // HYPRLAND LAYOUT STATE (dynamic, not persisted)
+    // COMPOSITOR LAYOUT STATE (persisted via StateService)
     // ═══════════════════════════════════════════════════════════════
-    property string hyprlandLayout: "dwindle"
-    property bool hyprlandLayoutReady: false
+    property string compositorLayout: ""
+    property bool compositorLayoutReady: false
     readonly property var availableLayouts: ["dwindle", "master", "scrolling"]
 
-    function setHyprlandLayout(layout) {
-        if (availableLayouts.includes(layout)) {
-            hyprlandLayout = layout;
-        }
-    }
-
-    function cycleHyprlandLayout() {
-        const currentIndex = availableLayouts.indexOf(hyprlandLayout);
-        const nextIndex = (currentIndex + 1) % availableLayouts.length;
-        hyprlandLayout = availableLayouts[nextIndex];
-    }
-
-    // Query current layout from Hyprland on startup
     Process {
-        id: layoutQueryProcess
+        id: getLayoutProcess
         command: ["hyprctl", "getoption", "general:layout", "-j"]
-        running: true
-        stdout: SplitParser {
-            onRead: data => {
+        stdout: StdioCollector {
+            onStreamFinished: {
                 try {
-                    const parsed = JSON.parse(data);
-                    if (parsed.str && root.availableLayouts.includes(parsed.str)) {
-                        root.hyprlandLayout = parsed.str;
-                        console.log("GlobalStates: Layout inicial desde Hyprland: " + parsed.str);
+                    const parsed = JSON.parse(text);
+                    if (parsed && typeof parsed.str === 'string') {
+                        const layout = parsed.str.trim();
+                        if (root.availableLayouts.includes(layout)) {
+                            root.compositorLayout = layout;
+                        } else {
+                            // Fallback if the layout isn't one of the known ones
+                            root.compositorLayout = StateService.get("compositorLayout", "dwindle");
+                        }
+                    } else {
+                        root.compositorLayout = StateService.get("compositorLayout", "dwindle");
                     }
                 } catch (e) {
-                    console.warn("GlobalStates: Error parsing layout from hyprctl: " + e);
+                    console.warn("GlobalStates: Failed to parse hyprctl layout:", e);
+                    root.compositorLayout = StateService.get("compositorLayout", "dwindle");
                 }
-                root.hyprlandLayoutReady = true;
+                root.compositorLayoutReady = true;
             }
         }
-        onExited: {
-            // Mark as ready even if parsing failed
-            root.hyprlandLayoutReady = true;
+    }
+
+    function setCompositorLayout(layout) {
+        if (availableLayouts.includes(layout)) {
+            compositorLayout = layout;
+            StateService.set("compositorLayout", layout);
         }
     }
+
+    function cycleCompositorLayout() {
+        const currentIndex = availableLayouts.indexOf(compositorLayout);
+        const nextIndex = (currentIndex + 1) % availableLayouts.length;
+        setCompositorLayout(availableLayouts[nextIndex]);
+    }
+
 
     // Ensure LockscreenService singleton is loaded
     Component.onCompleted: {
         // Reference the singleton to ensure it loads
         LockscreenService.toString();
+        // Fetch the active layout from the compositor
+        getLayoutProcess.running = true;
     }
 
     // Persistent launcher state across monitors
@@ -457,9 +462,8 @@ Singleton {
     property bool compositorHasChanges: false
     property var compositorSnapshot: null
 
-    // Compositor config properties (Hyprland)
+    // Compositor config properties (AxctlService)
     readonly property var _compositorProps: [
-        "layout",
         "syncBorderWidth", "borderSize",
         "syncRoundness", "rounding",
         "gapsIn", "gapsOut",
@@ -482,7 +486,7 @@ Singleton {
         var snapshot = {};
         for (var i = 0; i < _compositorProps.length; i++) {
             var prop = _compositorProps[i];
-            var val = Config.hyprland[prop];
+            var val = Config.compositor[prop];
             // Deep copy arrays
             if (Array.isArray(val)) {
                 snapshot[prop] = JSON.parse(JSON.stringify(val));
@@ -502,9 +506,9 @@ Singleton {
                 var val = snapshot[prop];
                 // Deep copy arrays
                 if (Array.isArray(val)) {
-                    Config.hyprland[prop] = JSON.parse(JSON.stringify(val));
+                    Config.compositor[prop] = JSON.parse(JSON.stringify(val));
                 } else {
-                    Config.hyprland[prop] = val;
+                    Config.compositor[prop] = val;
                 }
             }
         }
@@ -521,7 +525,7 @@ Singleton {
 
     function applyCompositorChanges() {
         if (compositorHasChanges) {
-            Config.saveHyprland();
+            Config.saveCompositor();
             compositorHasChanges = false;
             compositorSnapshot = null;
             Config.pauseAutoSave = false;
@@ -536,4 +540,35 @@ Singleton {
             Config.pauseAutoSave = false;
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ASSISTANT SIDEBAR STATE
+    // ═══════════════════════════════════════════════════════════════
+    property bool assistantVisible: false
+    property bool assistantPinned: Config.ai.sidebarPinnedOnStartup ?? false
+    property int assistantWidth: Config.ai.sidebarWidth ?? 400
+    property string assistantPosition: Config.ai.sidebarPosition ?? "right"
+    property string assistantScreenName: ""
+
+    signal assistantFocusRequested(bool wasAlreadyOpen)
+
+    function toggleAssistant() {
+        if (assistantVisible) {
+            assistantFocusRequested(true);
+        } else {
+            assistantVisible = true;
+            if (AxctlService.focusedMonitor && AxctlService.focusedMonitor.name) {
+                assistantScreenName = AxctlService.focusedMonitor.name;
+            } else if (Quickshell.screens.length > 0) {
+                assistantScreenName = Quickshell.screens[0].name;
+            }
+            assistantFocusRequested(false);
+        }
+    }
+
+    function hideAssistant() {
+        assistantVisible = false;
+    }
+
+    property int settingsCurrentTab: 0
 }

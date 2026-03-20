@@ -3,7 +3,6 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import qs.modules.theme
 import qs.modules.components
 import qs.modules.services
@@ -34,7 +33,7 @@ PanelWindow {
     property bool recordAudioOutput: false
     property bool recordAudioInput: false
 
-    property var focusedMonitor: null // List of monitor objects from hyprctl
+    property var focusedMonitor: null // List of monitor objects from compositor
 
     function getModes() {
         return [
@@ -155,7 +154,7 @@ PanelWindow {
         height: 0
     }
 
-    HyprlandFocusGrab {
+    FocusGrab {
         id: focusGrab
         windows: [screenrecordPopup]
         active: screenrecordPopup.visible

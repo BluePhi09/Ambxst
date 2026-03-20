@@ -25,6 +25,8 @@ Item {
 
     Layout.preferredWidth: 36
     Layout.preferredHeight: 36
+    Layout.maximumWidth: 36
+    Layout.maximumHeight: 36
     Layout.fillWidth: vertical
     Layout.fillHeight: !vertical
 
@@ -86,7 +88,7 @@ Item {
 
         Text {
             anchors.centerIn: parent
-            text: root.getLayoutIcon(GlobalStates.hyprlandLayout)
+            text: root.getLayoutIcon(GlobalStates.compositorLayout)
             font.family: Icons.font
             font.pixelSize: 18
             color: root.popupOpen ? buttonBg.item : Styling.srItem("overprimary")
@@ -101,7 +103,7 @@ Item {
 
         StyledToolTip {
             visible: root.isHovered && !root.popupOpen
-            tooltipText: "Layout: " + root.getLayoutDisplayName(GlobalStates.hyprlandLayout)
+            tooltipText: "Layout: " + root.getLayoutDisplayName(GlobalStates.compositorLayout)
         }
     }
 
@@ -121,7 +123,7 @@ Item {
 
             readonly property int currentIndex: {
                 for (let i = 0; i < GlobalStates.availableLayouts.length; i++) {
-                    if (GlobalStates.availableLayouts[i] === GlobalStates.hyprlandLayout) {
+                    if (GlobalStates.availableLayouts[i] === GlobalStates.compositorLayout) {
                         return i;
                     }
                 }
@@ -184,7 +186,7 @@ Item {
                         onExited: layoutButton.buttonHovered = false
 
                         onClicked: {
-                            GlobalStates.setHyprlandLayout(layoutButton.modelData);
+                            GlobalStates.setCompositorLayout(layoutButton.modelData);
                         }
                     }
                 }

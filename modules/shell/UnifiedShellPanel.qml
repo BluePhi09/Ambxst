@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import qs.modules.bar
 import qs.modules.bar.workspaces
 import qs.modules.notch
@@ -12,6 +11,7 @@ import qs.modules.services
 import qs.modules.globals
 import qs.modules.components
 import qs.config
+import qs.modules.sidebar
 
 PanelWindow {
     id: unifiedPanel
@@ -28,10 +28,24 @@ PanelWindow {
 
     color: "transparent"
 
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    // Dynamic keyboard focus: Exclusive when a notch module is open (so text fields work),
+    // None otherwise (so compositor receives normal input).
+    WlrLayershell.keyboardFocus: {
+        if (notchContent.screenNotchOpen) {
+            return WlrKeyboardFocus.Exclusive;
+        }
+        if (assistantSidebar.active && assistantSidebar.wantsFocus) {
+            return WlrKeyboardFocus.Exclusive;
+        }
+        return WlrKeyboardFocus.None;
+    }
     WlrLayershell.namespace: "ambxst"
     WlrLayershell.layer: WlrLayer.Overlay
     exclusionMode: ExclusionMode.Ignore
+
+    // Whether we need to capture full-screen input for click-outside detection.
+    // True when notch modules are open OR any FocusGrab is active (e.g., BarPopups).
+    readonly property bool needsFullScreenInput: notchContent.screenNotchOpen || FocusGrabManager.hasActiveGrab || (assistantSidebar.active && assistantSidebar.wantsFocus)
 
     readonly property bool barEnabled: {
         if (!Config.barReady) return false;
@@ -74,22 +88,22 @@ PanelWindow {
 
     readonly property bool unifiedEffectActive: false // Flag to notify children to disable internal borders
 
-    readonly property var hyprlandMonitor: Hyprland.monitorFor(targetScreen)
+    readonly property var compositorMonitor: AxctlService.monitorFor(targetScreen)
     readonly property bool hasFullscreenWindow: {
-        if (!hyprlandMonitor)
+        if (!compositorMonitor)
             return false;
 
-        const activeWorkspaceId = hyprlandMonitor.activeWorkspace.id;
-        const monId = hyprlandMonitor.id;
+        const activeWorkspaceId = compositorMonitor.activeWorkspace.id;
+        const monId = compositorMonitor.id;
 
         // Check active toplevel first (fast path)
         const toplevel = ToplevelManager.activeToplevel;
-        if (toplevel && toplevel.fullscreen && Hyprland.focusedMonitor.id === monId) {
+        if (toplevel && toplevel.fullscreen && AxctlService.focusedMonitor.id === monId) {
             return true;
         }
 
         // Check all windows on this monitor (robust path)
-        const wins = HyprlandData.windowList;
+        const wins = CompositorData.windowList;
         for (let i = 0; i < wins.length; i++) {
             if (wins[i].monitor === monId && wins[i].fullscreen && wins[i].workspace.id === activeWorkspaceId) {
                 return true;
@@ -124,10 +138,18 @@ PanelWindow {
         Visibilities.unregisterDock(screen.name);
     }
 
+    // Full-screen mask item (used when modules/popups are open)
+    Item {
+        id: fullScreenMask
+        anchors.fill: parent
+    }
+
     // Mask Region Logic
-    // We use nested regions to define non-contiguous hit areas for each component.
-    // This allows clicking through the empty space between the Bar, Notch, and Dock.
+    // When a module or popup is open, expand to full-screen to capture click-outside.
+    // Otherwise, restrict input to Bar, Notch, and Dock hitboxes only.
     mask: Region {
+        // Full-screen capture when any module/popup is open
+        item: unifiedPanel.needsFullScreenInput ? fullScreenMask : null
         regions: [
             Region {
                 item: barContent.visible ? barContent.barHitbox : null
@@ -138,22 +160,41 @@ PanelWindow {
             Region {
                 // Only include the dock hitbox if the dock is actually enabled and visible on this screen.
                 item: dockContent.visible ? dockContent.dockHitbox : null
+            },
+            Region {
+                item: (assistantSidebar.active || assistantSidebar.hitbox.visible) ? assistantSidebar.hitbox : null
             }
         ]
     }
 
-    // Focus Grab for Notch
-    HyprlandFocusGrab {
+    // Focus Grab for Notch — registers with FocusGrabManager for click-outside coordination
+    FocusGrab {
         id: focusGrab
-        windows: {
-            let windowList = [unifiedPanel];
-            // Optionally add other windows if needed, but since we are one window, this might be enough.
-            return windowList;
-        }
+        windows: [unifiedPanel]
         active: notchContent.screenNotchOpen
 
         onCleared: {
             Visibilities.setActiveModule("");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CLICK-OUTSIDE BACKDROP
+    // ═══════════════════════════════════════════════════════════════
+
+    // Transparent backdrop that captures clicks on empty areas when modules/popups are open.
+    // z: -1 ensures it's below all visual content (bar, notch, dock).
+    MouseArea {
+        id: backdropArea
+        anchors.fill: parent
+        visible: unifiedPanel.needsFullScreenInput
+        z: -1
+
+        onClicked: {
+            FocusGrabManager.clearTopGrab();
+            if (assistantSidebar.active && assistantSidebar.wantsFocus) {
+                assistantSidebar.wantsFocus = false;
+            }
         }
     }
 
@@ -199,6 +240,59 @@ PanelWindow {
             anchors.fill: parent
             screen: unifiedPanel.targetScreen
             z: 4
+        }
+
+        AssistantSidebar {
+            id: assistantSidebar
+            targetScreen: unifiedPanel.targetScreen
+            z: 1
+            
+            // Respect top/bottom bar reservations so the sidebar doesn't overlap them
+            anchors.topMargin: {
+                let frameOn = (Config.bar?.frameEnabled ?? false);
+                let frameWrapped = frameOn && GlobalStates.assistantPinned;
+                let margin = (frameOn && !frameWrapped) ? (Config.bar?.frameThickness ?? 6) : 0;
+                if (unifiedPanel.barEnabled && unifiedPanel.barPosition === "top" && unifiedPanel.barPinned) {
+                    margin += unifiedPanel.barTargetHeight + unifiedPanel.barOuterMargin + (unifiedPanel.containBar ? Config.bar.frameThickness : 0);
+                }
+                return margin;
+            }
+            
+            anchors.bottomMargin: {
+                let frameOn = (Config.bar?.frameEnabled ?? false);
+                let frameWrapped = frameOn && GlobalStates.assistantPinned;
+                let margin = (frameOn && !frameWrapped) ? (Config.bar?.frameThickness ?? 6) : 0;
+                if (unifiedPanel.barEnabled && unifiedPanel.barPosition === "bottom" && unifiedPanel.barPinned) {
+                    margin += unifiedPanel.barTargetHeight + unifiedPanel.barOuterMargin + (unifiedPanel.containBar ? Config.bar.frameThickness : 0);
+                } else if (unifiedPanel.dockEnabled && dockContent.dockPosition === "bottom" && dockContent.pinned) {
+                    margin += dockContent.dockHeight;
+                }
+                return margin;
+            }
+
+            anchors.leftMargin: {
+                let sidebarPos = GlobalStates.assistantPosition;
+                let frameOn = (Config.bar?.frameEnabled ?? false);
+                let frameWrapped = frameOn && GlobalStates.assistantPinned;
+                let margin = 0;
+                if (sidebarPos === "left" && frameOn && !frameWrapped)
+                    margin += (Config.bar?.frameThickness ?? 6);
+                if (unifiedPanel.barEnabled && unifiedPanel.barPosition === "left" && unifiedPanel.barPinned)
+                    margin += unifiedPanel.barTargetWidth + unifiedPanel.barOuterMargin + (unifiedPanel.containBar ? Config.bar.frameThickness : 0);
+                return margin;
+            }
+
+            anchors.rightMargin: {
+                let sidebarPos = GlobalStates.assistantPosition;
+                let frameOn = (Config.bar?.frameEnabled ?? false);
+                let frameWrapped = frameOn && GlobalStates.assistantPinned;
+                let margin = 0;
+                if (sidebarPos === "right" && frameOn && !frameWrapped)
+                    margin += (Config.bar?.frameThickness ?? 6);
+                if (unifiedPanel.barEnabled && unifiedPanel.barPosition === "right" && unifiedPanel.barPinned)
+                    margin += unifiedPanel.barTargetWidth + unifiedPanel.barOuterMargin + (unifiedPanel.containBar ? Config.bar.frameThickness : 0);
+                return margin;
+            }
         }
     }
 }

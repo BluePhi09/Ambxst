@@ -9,6 +9,17 @@ layout(std140, binding = 0) uniform buf {
     float angle;
     float canvasWidth;
     float canvasHeight;
+    int numStops;
+    vec4 stopColor0;
+    vec4 stopColor1;
+    vec4 stopColor2;
+    vec4 stopColor3;
+    vec4 stopColor4;
+    vec4 stopColor5;
+    vec4 stopColor6;
+    vec4 stopColor7;
+    vec4 stopPositionsPack0;
+    vec4 stopPositionsPack1;
 } ubuf;
 
 void main() {

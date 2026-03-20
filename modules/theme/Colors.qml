@@ -6,7 +6,8 @@ import qs.config
 
 FileView {
     id: colors
-    path: Quickshell.cachePath("colors.json")
+    // QUICKSHELL-GIT: path: Quickshell.cachePath("colors.json")
+    path: Quickshell.env("HOME") + "/.cache/ambxst/colors.json"
     preload: true
     watchChanges: true
     onFileChanged: {

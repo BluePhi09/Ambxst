@@ -48,7 +48,7 @@ PanelWindow {
     Process {
         id: cursorPos
         running: false
-        command: ["hyprctl", "cursorpos"]
+        command: ["axctl", "system", "get-cursor-position"]
         
         stdout: StdioCollector {
             onStreamFinished: {

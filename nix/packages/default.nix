@@ -1,8 +1,9 @@
 # Main Ambxst package
-{ pkgs, lib, self, system, quickshell, ambxstLib }:
+{ pkgs, lib, self, system, quickshell, axctl }:
 
 let
   quickshellPkg = quickshell.packages.${system}.default;
+  axctlPkg = axctl.packages.${system}.default;
 
   # Import sub-packages
   ttf-phosphor-icons = import ./phosphor-icons.nix { inherit pkgs; };
@@ -17,6 +18,7 @@ let
 
   # Combine all packages (NixOS-specific deps handled by the module)
   baseEnv = corePkgs
+    ++ [ axctlPkg ]
     ++ toolsPkgs
     ++ mediaPkgs
     ++ appsPkgs

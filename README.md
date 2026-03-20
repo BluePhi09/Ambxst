@@ -115,10 +115,10 @@ If you are having trouble or have any questions:
 ---
 
 ## Credits
+- [outfoxxed](https://outfoxxed.me/) for creating Quickshell and great documentation!
 - [end-4](https://github.com/end-4) for his awesome projects. I learned a lot from them! (And *yoinked* a lot of code, too. 😅)
 - [soramane](https://github.com/soramanew) for helping me when I started with Quickshell. (You probably don't remember, but still, heh.)
-- [outfoxxed](https://outfoxxed.me/) for creating Quickshell and great documentation!
-- [tr1x_em](https://github.com/tr1x_em) for being a great friend and helping me find great tools. You rock!
+- [tr1x_em](https://trix.is-a.dev/) for being a great friend and helping me find great tools. You rock!
 - [Darsh](https://github.com/its-darsh) for not killing me when I left Fabric. u_u (Also for being a great friend and creating Fabric! Without Fabric, Ax-Shell wouldn't exist, so Ambxst wouldn't either. Thank you!)
 - [Mario](https://github.com/mariokhz) for being a great friend and showing me Quickshell!
 - [Samouly](https://samouly.is-a.dev/) for being Samouly. :3

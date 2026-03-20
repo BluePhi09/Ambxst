@@ -138,7 +138,7 @@ Item {
                 radius: Styling.radius(-4)
                 opacity: addButton.isEnabled ? (addMouseArea.containsMouse ? 0.8 : 1.0) : 0.5
 
-                property bool isEnabled: true
+                property bool isEnabled: root.stops.length < 8
 
                 Text {
                     anchors.centerIn: parent
@@ -354,6 +354,7 @@ Item {
                     anchors.fill: gradientBar
                     z: -1
                     onDoubleClicked: mouse => {
+                        if (root.stops.length >= 8) return;
                         const position = Math.round((mouse.x / gradientBar.width) * 1000) / 1000;
                         let nearestColor = root.stops[0][0];
                         let minDist = 1.0;

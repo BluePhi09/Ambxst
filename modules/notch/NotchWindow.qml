@@ -1,7 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
+import qs.modules.services
 import qs.modules.globals
 import qs.config
 
@@ -26,7 +26,7 @@ PanelWindow {
     readonly property alias screenNotchOpen: notchContent.screenNotchOpen
     readonly property alias reveal: notchContent.reveal
 
-    HyprlandFocusGrab {
+    FocusGrab {
         id: focusGrab
         windows: {
             let windowList = [notchPanel];

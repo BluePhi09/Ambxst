@@ -6,7 +6,7 @@ pragma ComponentBehavior: Bound
 
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
+import qs.modules.services
 import QtQuick
 
 /**
@@ -57,14 +57,14 @@ Singleton {
     }
 
     function increaseBrightness(): void {
-        const focusedName = Hyprland.focusedMonitor.name;
+        const focusedName = AxctlService.focusedMonitor.name;
         const monitor = monitors.find(m => focusedName === m.screen.name);
         if (monitor)
             monitor.setBrightness(monitor.brightness + 0.05);
     }
 
     function decreaseBrightness(): void {
-        const focusedName = Hyprland.focusedMonitor.name;
+        const focusedName = AxctlService.focusedMonitor.name;
         const monitor = monitors.find(m => focusedName === m.screen.name);
         if (monitor)
             monitor.setBrightness(monitor.brightness - 0.05);
@@ -190,14 +190,29 @@ Singleton {
                 return;
             if (isDdc && !busNum)
                 return;
-            initProc.command = isDdc ? ["ddcutil", "-b", busNum, "getvcp", "10", "--brief"] : ["sh", "-c", `echo "a b c $(brightnessctl g) $(brightnessctl m)"`];
+            initProc.command = isDdc ? ["ddcutil", "-b", busNum, "getvcp", "10"] : ["sh", "-c", `echo "a b c $(brightnessctl g) $(brightnessctl m)"`];
             initProc.running = true;
         }
 
         readonly property Process initProc: Process {
             stdout: SplitParser {
                 onRead: data => {
-                    const tokens = data.trim().split(/\s+/);
+                    const trimmed = data.trim();
+                    // Try verbose format: "current value = X, max value = Y"
+                    const verboseMatch = trimmed.match(/current\s+value\s*=\s*(\d+).*max\s+value\s*=\s*(\d+)/);
+                    if (verboseMatch) {
+                        const currentRaw = parseInt(verboseMatch[1]);
+                        const maxRaw = parseInt(verboseMatch[2]);
+                        if (!isNaN(currentRaw) && !isNaN(maxRaw) && maxRaw > 0) {
+                            monitor.rawMaxBrightness = maxRaw;
+                            monitor.brightness = currentRaw / monitor.rawMaxBrightness;
+                            monitor.ready = true;
+                            root.brightnessChanged(monitor.brightness, monitor.screen);
+                        }
+                        return;
+                    }
+                    // Fallback: token-based (brief format / brightnessctl)
+                    const tokens = trimmed.split(/\s+/);
                     if (tokens.length < 2)
                         return;
                     const currentRaw = parseInt(tokens[tokens.length - 2]);
@@ -300,17 +315,5 @@ Singleton {
                 }
             }
         }
-    }
-
-    GlobalShortcut {
-        name: "brightnessIncrease"
-        description: "Increase brightness"
-        onPressed: root.increaseBrightness()
-    }
-
-    GlobalShortcut {
-        name: "brightnessDecrease"
-        description: "Decrease brightness"
-        onPressed: root.decreaseBrightness()
     }
 }

@@ -633,6 +633,10 @@ Item {
                             sectionId: "bar"
                         }
                         SectionButton {
+                            text: "Sidebar"
+                            sectionId: "sidebar"
+                        }
+                        SectionButton {
                             text: "Frame"
                             sectionId: "frame"
                         }
@@ -919,7 +923,7 @@ Item {
                         NumberInputRow {
                             label: "Thickness"
                             value: Config.bar.frameThickness ?? 6
-                            minValue: 1
+                            minValue: 0
                             maxValue: 40
                             suffix: "px"
                             onValueEdited: newValue => {
@@ -1846,6 +1850,72 @@ Item {
                                 if (value !== Config.system.ocr.kor) {
                                     GlobalStates.markShellChanged();
                                     Config.system.ocr.kor = value;
+                                }
+                            }
+                        }
+                    }
+
+                    // ═══════════════════════════════════════════════════════════════
+                    // SIDEBAR SECTION
+                    // ═══════════════════════════════════════════════════════════════
+                    ColumnLayout {
+                        visible: root.currentSection === "sidebar"
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            text: "Sidebar"
+                            font.family: Config.theme.font
+                            font.pixelSize: Styling.fontSize(-1)
+                            font.weight: Font.Medium
+                            color: Colors.overSurfaceVariant
+                            Layout.bottomMargin: -4
+                        }
+
+                        SelectorRow {
+                            label: "Position"
+                            options: [
+                                {
+                                    label: "Left",
+                                    value: "left",
+                                    icon: Icons.arrowLeft
+                                },
+                                {
+                                    label: "Right",
+                                    value: "right",
+                                    icon: Icons.arrowRight
+                                }
+                            ]
+                            value: Config.ai.sidebarPosition ?? "right"
+                            onValueSelected: newValue => {
+                                if (newValue !== Config.ai.sidebarPosition) {
+                                    GlobalStates.markShellChanged();
+                                    Config.ai.sidebarPosition = newValue;
+                                }
+                            }
+                        }
+
+                        NumberInputRow {
+                            label: "Width"
+                            value: Config.ai.sidebarWidth ?? 400
+                            minValue: 300
+                            maxValue: 800
+                            suffix: "px"
+                            onValueEdited: newValue => {
+                                if (newValue !== Config.ai.sidebarWidth) {
+                                    GlobalStates.markShellChanged();
+                                    Config.ai.sidebarWidth = newValue;
+                                }
+                            }
+                        }
+
+                        ToggleRow {
+                            label: "Pinned on Startup"
+                            checked: Config.ai.sidebarPinnedOnStartup ?? false
+                            onToggled: value => {
+                                if (value !== Config.ai.sidebarPinnedOnStartup) {
+                                    GlobalStates.markShellChanged();
+                                    Config.ai.sidebarPinnedOnStartup = value;
                                 }
                             }
                         }

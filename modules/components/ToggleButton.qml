@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Effects
 import Quickshell
-import Quickshell.Hyprland
+import qs.modules.services
 import qs.modules.theme
 import qs.modules.globals
 import qs.config

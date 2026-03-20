@@ -112,37 +112,37 @@ QtObject {
         { label: "Idle Listener", keywords: "timeout brightness screen off suspend", section: 6, subSection: "idle", subLabel: "System > Idle", icon: Icons.moon, isIcon: true },
         
         // --- Compositor ---
-        { label: "Compositor", keywords: "hyprland window manager wm", section: 7, subSection: "", subLabel: "Compositor", icon: Icons.compositor, isIcon: true },
+        { label: "Compositor", keywords: "compositor window manager wm", section: 7, subSection: "", subLabel: "Compositor", icon: Icons.compositor, isIcon: true },
         
-        // Compositor > Hyprland > General
-        { label: "Border Size", keywords: "width thickness stroke", section: 7, subSection: "general", subLabel: "Compositor > Hyprland", icon: Icons.frameCorners, isIcon: true },
-        { label: "Window Gaps", keywords: "spacing margin padding", section: 7, subSection: "general", subLabel: "Compositor > Hyprland", icon: Icons.squaresFour, isIcon: true },
+        // Compositor > AxctlService > General
+        { label: "Border Size", keywords: "width thickness stroke", section: 7, subSection: "general", subLabel: "Compositor > AxctlService", icon: Icons.frameCorners, isIcon: true },
+        { label: "Window Gaps", keywords: "spacing margin padding", section: 7, subSection: "general", subLabel: "Compositor > AxctlService", icon: Icons.squaresFour, isIcon: true },
         
-        // Compositor > Hyprland > Colors
-        { label: "Border Colors", keywords: "active inactive focus", section: 7, subSection: "colors", subLabel: "Compositor > Hyprland", icon: Icons.palette, isIcon: true },
+        // Compositor > AxctlService > Colors
+        { label: "Border Colors", keywords: "active inactive focus", section: 7, subSection: "colors", subLabel: "Compositor > AxctlService", icon: Icons.palette, isIcon: true },
 
-        // Compositor > Hyprland > Shadows
-        { label: "Shadows Enabled", keywords: "toggle on off", section: 7, subSection: "shadows", subLabel: "Compositor > Hyprland", icon: Icons.drop, isIcon: true },
-        { label: "Sync Shadow Color", keywords: "match border", section: 7, subSection: "shadows", subLabel: "Compositor > Hyprland", icon: Icons.palette, isIcon: true },
-        { label: "Sync Shadow Opacity", keywords: "match border alpha", section: 7, subSection: "shadows", subLabel: "Compositor > Hyprland", icon: Icons.drop, isIcon: true },
-        { label: "Shadow Range", keywords: "blur radius size", section: 7, subSection: "shadows", subLabel: "Compositor > Hyprland", icon: Icons.circle, isIcon: true },
-        { label: "Shadow Offset", keywords: "position x y move", section: 7, subSection: "shadows", subLabel: "Compositor > Hyprland", icon: Icons.arrowsOutSimple, isIcon: true },
-        { label: "Shadow Power", keywords: "strength render intensity", section: 7, subSection: "shadows", subLabel: "Compositor > Hyprland", icon: Icons.lightning, isIcon: true },
-        { label: "Shadow Scale", keywords: "zoom resize", section: 7, subSection: "shadows", subLabel: "Compositor > Hyprland", icon: Icons.cornersOut, isIcon: true },
+        // Compositor > AxctlService > Shadows
+        { label: "Shadows Enabled", keywords: "toggle on off", section: 7, subSection: "shadows", subLabel: "Compositor > AxctlService", icon: Icons.drop, isIcon: true },
+        { label: "Sync Shadow Color", keywords: "match border", section: 7, subSection: "shadows", subLabel: "Compositor > AxctlService", icon: Icons.palette, isIcon: true },
+        { label: "Sync Shadow Opacity", keywords: "match border alpha", section: 7, subSection: "shadows", subLabel: "Compositor > AxctlService", icon: Icons.drop, isIcon: true },
+        { label: "Shadow Range", keywords: "blur radius size", section: 7, subSection: "shadows", subLabel: "Compositor > AxctlService", icon: Icons.circle, isIcon: true },
+        { label: "Shadow Offset", keywords: "position x y move", section: 7, subSection: "shadows", subLabel: "Compositor > AxctlService", icon: Icons.arrowsOutSimple, isIcon: true },
+        { label: "Shadow Power", keywords: "strength render intensity", section: 7, subSection: "shadows", subLabel: "Compositor > AxctlService", icon: Icons.lightning, isIcon: true },
+        { label: "Shadow Scale", keywords: "zoom resize", section: 7, subSection: "shadows", subLabel: "Compositor > AxctlService", icon: Icons.cornersOut, isIcon: true },
 
-        // Compositor > Hyprland > Blur
-        { label: "Blur Enabled", keywords: "toggle on off transparency", section: 7, subSection: "blur", subLabel: "Compositor > Hyprland", icon: Icons.drop, isIcon: true },
-        { label: "Blur Size", keywords: "radius amount", section: 7, subSection: "blur", subLabel: "Compositor > Hyprland", icon: Icons.circle, isIcon: true },
-        { label: "Blur Passes", keywords: "quality iterations", section: 7, subSection: "blur", subLabel: "Compositor > Hyprland", icon: Icons.circle, isIcon: true },
-        { label: "Blur Xray", keywords: "transparency see through", section: 7, subSection: "blur", subLabel: "Compositor > Hyprland", icon: Icons.drop, isIcon: true },
-        { label: "Blur New Optimizations", keywords: "performance speed", section: 7, subSection: "blur", subLabel: "Compositor > Hyprland", icon: Icons.lightning, isIcon: true },
-        { label: "Blur Ignore Opacity", keywords: "transparency alpha", section: 7, subSection: "blur", subLabel: "Compositor > Hyprland", icon: Icons.drop, isIcon: true },
-        { label: "Blur Ignorealpha", keywords: "explicit transparency", section: 7, subSection: "blur", subLabel: "Compositor > Hyprland", icon: Icons.drop, isIcon: true },
-        { label: "Blur Ignorealpha Value", keywords: "threshold amount", section: 7, subSection: "blur", subLabel: "Compositor > Hyprland", icon: Icons.drop, isIcon: true },
-        { label: "Blur Noise", keywords: "grain texture static", section: 7, subSection: "blur", subLabel: "Compositor > Hyprland", icon: Icons.drop, isIcon: true },
-        { label: "Blur Contrast", keywords: "intensity difference", section: 7, subSection: "blur", subLabel: "Compositor > Hyprland", icon: Icons.drop, isIcon: true },
-        { label: "Blur Brightness", keywords: "light dark level", section: 7, subSection: "blur", subLabel: "Compositor > Hyprland", icon: Icons.drop, isIcon: true },
-        { label: "Blur Vibrancy", keywords: "saturation color", section: 7, subSection: "blur", subLabel: "Compositor > Hyprland", icon: Icons.drop, isIcon: true },
+        // Compositor > AxctlService > Blur
+        { label: "Blur Enabled", keywords: "toggle on off transparency", section: 7, subSection: "blur", subLabel: "Compositor > AxctlService", icon: Icons.drop, isIcon: true },
+        { label: "Blur Size", keywords: "radius amount", section: 7, subSection: "blur", subLabel: "Compositor > AxctlService", icon: Icons.circle, isIcon: true },
+        { label: "Blur Passes", keywords: "quality iterations", section: 7, subSection: "blur", subLabel: "Compositor > AxctlService", icon: Icons.circle, isIcon: true },
+        { label: "Blur Xray", keywords: "transparency see through", section: 7, subSection: "blur", subLabel: "Compositor > AxctlService", icon: Icons.drop, isIcon: true },
+        { label: "Blur New Optimizations", keywords: "performance speed", section: 7, subSection: "blur", subLabel: "Compositor > AxctlService", icon: Icons.lightning, isIcon: true },
+        { label: "Blur Ignore Opacity", keywords: "transparency alpha", section: 7, subSection: "blur", subLabel: "Compositor > AxctlService", icon: Icons.drop, isIcon: true },
+        { label: "Blur Ignorealpha", keywords: "explicit transparency", section: 7, subSection: "blur", subLabel: "Compositor > AxctlService", icon: Icons.drop, isIcon: true },
+        { label: "Blur Ignorealpha Value", keywords: "threshold amount", section: 7, subSection: "blur", subLabel: "Compositor > AxctlService", icon: Icons.drop, isIcon: true },
+        { label: "Blur Noise", keywords: "grain texture static", section: 7, subSection: "blur", subLabel: "Compositor > AxctlService", icon: Icons.drop, isIcon: true },
+        { label: "Blur Contrast", keywords: "intensity difference", section: 7, subSection: "blur", subLabel: "Compositor > AxctlService", icon: Icons.drop, isIcon: true },
+        { label: "Blur Brightness", keywords: "light dark level", section: 7, subSection: "blur", subLabel: "Compositor > AxctlService", icon: Icons.drop, isIcon: true },
+        { label: "Blur Vibrancy", keywords: "saturation color", section: 7, subSection: "blur", subLabel: "Compositor > AxctlService", icon: Icons.drop, isIcon: true },
 
         // --- Ambxst / Shell ---
         { label: "Ambxst", keywords: "about info credits version shell", section: 8, subSection: "", subLabel: "", icon: Qt.resolvedUrl("../../../../assets/ambxst/ambxst-icon.svg"), isIcon: false },

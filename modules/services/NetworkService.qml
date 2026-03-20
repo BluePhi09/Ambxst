@@ -298,10 +298,10 @@ Singleton {
     Process {
         id: wifiStatusProcess
         command: ["nmcli", "radio", "wifi"]
-        running: false
+        running: true
         environment: ({
-            LANG: "C",
-            LC_ALL: "C"
+            LANG: "C.UTF-8",
+            LC_ALL: "C.UTF-8"
         })
         stdout: SplitParser {
             onRead: data => {
@@ -312,11 +312,11 @@ Singleton {
 
     Process {
         id: getNetworks
-        running: true
+        running: false
         command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "w"]
         environment: ({
-            LANG: "C",
-            LC_ALL: "C"
+            LANG: "C.UTF-8",
+            LC_ALL: "C.UTF-8"
         })
         property string buffer: ""
         stdout: SplitParser {
