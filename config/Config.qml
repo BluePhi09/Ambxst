@@ -36,6 +36,7 @@ Singleton {
 
     property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/ambxst/config"
     property string keybindsPath: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/ambxst/binds.json"
+    property string presetDir: Qt.resolvedUrl("../assets/presets/Ambxst Default").toString().replace("file://", "")
 
     property bool pauseAutoSave: false
 
@@ -65,11 +66,26 @@ Singleton {
     // ============================================
     // BATCH INITIALIZATION
     // ============================================
-    // Ensure config directory exists (pure mkdir, no file checks)
+    // Ensure config directory exists and copy preset files if missing
     Process {
         id: ensureConfigDir
         running: true
-        command: ["mkdir", "-p", root.configDir]
+        command: [
+            "bash", "-c",
+            "mkdir -p '" + root.configDir + "' && " +
+            "cp -n '" + root.presetDir + "/theme.json' '" + root.configDir + "/theme.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/bar.json' '" + root.configDir + "/bar.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/workspaces.json' '" + root.configDir + "/workspaces.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/overview.json' '" + root.configDir + "/overview.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/notch.json' '" + root.configDir + "/notch.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/compositor.json' '" + root.configDir + "/compositor.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/performance.json' '" + root.configDir + "/performance.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/desktop.json' '" + root.configDir + "/desktop.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/lockscreen.json' '" + root.configDir + "/lockscreen.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/dock.json' '" + root.configDir + "/dock.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/ai.json' '" + root.configDir + "/ai.json' 2>/dev/null || true; " +
+            "echo 'Preset files copied if missing'"
+        ]
     }
 
     // Auto-migrate hyprland.json → compositor.json for existing users
@@ -90,6 +106,13 @@ Singleton {
         onLoaded: {
             if (!root.themeReady) {
                 validateModule("theme", themeLoader, ThemeDefaults.data, () => {
+                    root.themeReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.themeReady) {
+                handleMissingConfig("theme", themeLoader, ThemeDefaults.data, () => {
                     root.themeReady = true;
                 });
             }
@@ -482,6 +505,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.barReady) {
+                handleMissingConfig("bar", barLoader, BarDefaults.data, () => {
+                    root.barReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -534,6 +564,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.workspacesReady) {
+                handleMissingConfig("workspaces", workspacesLoader, WorkspacesDefaults.data, () => {
+                    root.workspacesReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -566,6 +603,13 @@ Singleton {
         onLoaded: {
             if (!root.overviewReady) {
                 validateModule("overview", overviewLoader, OverviewDefaults.data, () => {
+                    root.overviewReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.overviewReady) {
+                handleMissingConfig("overview", overviewLoader, OverviewDefaults.data, () => {
                     root.overviewReady = true;
                 });
             }
@@ -605,6 +649,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.notchReady) {
+                handleMissingConfig("notch", notchLoader, NotchDefaults.data, () => {
+                    root.notchReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -639,6 +690,13 @@ Singleton {
         onLoaded: {
             if (!root.compositorReady) {
                 validateModule("compositor", compositorLoader, CompositorDefaults.data, () => {
+                    root.compositorReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.compositorReady) {
+                handleMissingConfig("compositor", compositorLoader, CompositorDefaults.data, () => {
                     root.compositorReady = true;
                 });
             }
@@ -716,6 +774,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.performanceReady) {
+                handleMissingConfig("performance", performanceLoader, PerformanceDefaults.data, () => {
+                    root.performanceReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -753,6 +818,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.weatherReady) {
+                handleMissingConfig("weather", weatherLoader, WeatherDefaults.data, () => {
+                    root.weatherReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -782,6 +854,13 @@ Singleton {
         onLoaded: {
             if (!root.desktopReady) {
                 validateModule("desktop", desktopLoader, DesktopDefaults.data, () => {
+                    root.desktopReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.desktopReady) {
+                handleMissingConfig("desktop", desktopLoader, DesktopDefaults.data, () => {
                     root.desktopReady = true;
                 });
             }
@@ -821,6 +900,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.lockscreenReady) {
+                handleMissingConfig("lockscreen", lockscreenLoader, LockscreenDefaults.data, () => {
+                    root.lockscreenReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -849,6 +935,13 @@ Singleton {
         onLoaded: {
             if (!root.prefixReady) {
                 validateModule("prefix", prefixLoader, PrefixDefaults.data, () => {
+                    root.prefixReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.prefixReady) {
+                handleMissingConfig("prefix", prefixLoader, PrefixDefaults.data, () => {
                     root.prefixReady = true;
                 });
             }
@@ -885,6 +978,13 @@ Singleton {
         onLoaded: {
             if (!root.systemReady) {
                 validateModule("system", systemLoader, SystemDefaults.data, () => {
+                    root.systemReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.systemReady) {
+                handleMissingConfig("system", systemLoader, SystemDefaults.data, () => {
                     root.systemReady = true;
                 });
             }
@@ -960,6 +1060,13 @@ Singleton {
         onLoaded: {
             if (!root.dockReady) {
                 validateModule("dock", dockLoader, DockDefaults.data, () => {
+                    root.dockReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.dockReady) {
+                handleMissingConfig("dock", dockLoader, DockDefaults.data, () => {
                     root.dockReady = true;
                 });
             }
@@ -1043,6 +1150,13 @@ Singleton {
         onLoaded: {
             if (!root.aiReady) {
                 validateModule("ai", aiLoader, AiDefaults.data, () => {
+                    root.aiReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.aiReady) {
+                handleMissingConfig("ai", aiLoader, AiDefaults.data, () => {
                     root.aiReady = true;
                 });
             }
@@ -2905,6 +3019,33 @@ Singleton {
             onComplete();
         }
     }
+
+    // Handle missing config files - copy from preset or create with defaults
+    function handleMissingConfig(name, loader, defaults, onComplete) {
+        var presetPath = root.presetDir + "/" + name + ".json";
+        var targetPath = root.configDir + "/" + name + ".json";
+        console.log(name + ".json not found, checking preset: " + presetPath);
+
+        // Create a Process component dynamically to copy the file
+        var copyProcess = Qt.createQmlObject(
+            "import QtQuick 2.0; Process { running: true; command: ['cp', '" + presetPath + "', '" + targetPath + "']; onFinished: { console.log('Copy finished for " + name + "'); } }",
+            root,
+            "copyProcess"
+        );
+
+        // Reload the loader to pick up the copied file
+        loader.reload();
+
+        // If still not ready after reload, use defaults as fallback
+        Qt.callLater(() => {
+            if (!root[name + "Ready"]) {
+                console.log("Using defaults for " + name + ".json");
+                loader.setText(JSON.stringify(defaults, null, 2));
+            }
+            onComplete();
+        });
+    }
+
 
     // Exposed properties
     // Theme configuration
