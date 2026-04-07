@@ -12,6 +12,7 @@ import "defaults/workspaces.js" as WorkspacesDefaults
 import "defaults/overview.js" as OverviewDefaults
 import "defaults/notch.js" as NotchDefaults
 import "defaults/compositor.js" as CompositorDefaults
+import "KeybindActions.js" as KeybindActions
 import "defaults/performance.js" as PerformanceDefaults
 import "defaults/weather.js" as WeatherDefaults
 import "defaults/desktop.js" as DesktopDefaults
@@ -35,6 +36,7 @@ Singleton {
 
     property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/ambxst/config"
     property string keybindsPath: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/ambxst/binds.json"
+    property string presetDir: Qt.resolvedUrl("../assets/presets/Ambxst Default").toString().replace("file://", "")
 
     property bool pauseAutoSave: false
 
@@ -64,11 +66,27 @@ Singleton {
     // ============================================
     // BATCH INITIALIZATION
     // ============================================
-    // Ensure config directory exists (pure mkdir, no file checks)
+    // Ensure config directory exists and copy preset files if missing
     Process {
         id: ensureConfigDir
         running: true
-        command: ["mkdir", "-p", root.configDir]
+        command: [
+            "bash", "-c",
+            "mkdir -p '" + root.configDir + "' && " +
+            "cp -n '" + root.presetDir + "/theme.json' '" + root.configDir + "/theme.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/bar.json' '" + root.configDir + "/bar.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/workspaces.json' '" + root.configDir + "/workspaces.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/overview.json' '" + root.configDir + "/overview.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/notch.json' '" + root.configDir + "/notch.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/compositor.json' '" + root.configDir + "/compositor.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/performance.json' '" + root.configDir + "/performance.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/desktop.json' '" + root.configDir + "/desktop.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/lockscreen.json' '" + root.configDir + "/lockscreen.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/dock.json' '" + root.configDir + "/dock.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/ai.json' '" + root.configDir + "/ai.json' 2>/dev/null || true; " +
+            "cp -n '" + root.presetDir + "/system.json' '" + root.configDir + "/system.json' 2>/dev/null || true; " +
+            "echo 'Preset files copied if missing'"
+        ]
     }
 
     // Auto-migrate hyprland.json → compositor.json for existing users
@@ -89,6 +107,13 @@ Singleton {
         onLoaded: {
             if (!root.themeReady) {
                 validateModule("theme", themeLoader, ThemeDefaults.data, () => {
+                    root.themeReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.themeReady) {
+                handleMissingConfig("theme", themeLoader, ThemeDefaults.data, () => {
                     root.themeReady = true;
                 });
             }
@@ -481,6 +506,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.barReady) {
+                handleMissingConfig("bar", barLoader, BarDefaults.data, () => {
+                    root.barReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -533,6 +565,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.workspacesReady) {
+                handleMissingConfig("workspaces", workspacesLoader, WorkspacesDefaults.data, () => {
+                    root.workspacesReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -565,6 +604,13 @@ Singleton {
         onLoaded: {
             if (!root.overviewReady) {
                 validateModule("overview", overviewLoader, OverviewDefaults.data, () => {
+                    root.overviewReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.overviewReady) {
+                handleMissingConfig("overview", overviewLoader, OverviewDefaults.data, () => {
                     root.overviewReady = true;
                 });
             }
@@ -604,6 +650,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.notchReady) {
+                handleMissingConfig("notch", notchLoader, NotchDefaults.data, () => {
+                    root.notchReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -638,6 +691,13 @@ Singleton {
         onLoaded: {
             if (!root.compositorReady) {
                 validateModule("compositor", compositorLoader, CompositorDefaults.data, () => {
+                    root.compositorReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.compositorReady) {
+                handleMissingConfig("compositor", compositorLoader, CompositorDefaults.data, () => {
                     root.compositorReady = true;
                 });
             }
@@ -715,6 +775,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.performanceReady) {
+                handleMissingConfig("performance", performanceLoader, PerformanceDefaults.data, () => {
+                    root.performanceReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -752,6 +819,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.weatherReady) {
+                handleMissingConfig("weather", weatherLoader, WeatherDefaults.data, () => {
+                    root.weatherReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -781,6 +855,13 @@ Singleton {
         onLoaded: {
             if (!root.desktopReady) {
                 validateModule("desktop", desktopLoader, DesktopDefaults.data, () => {
+                    root.desktopReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.desktopReady) {
+                handleMissingConfig("desktop", desktopLoader, DesktopDefaults.data, () => {
                     root.desktopReady = true;
                 });
             }
@@ -820,6 +901,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.lockscreenReady) {
+                handleMissingConfig("lockscreen", lockscreenLoader, LockscreenDefaults.data, () => {
+                    root.lockscreenReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -848,6 +936,13 @@ Singleton {
         onLoaded: {
             if (!root.prefixReady) {
                 validateModule("prefix", prefixLoader, PrefixDefaults.data, () => {
+                    root.prefixReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.prefixReady) {
+                handleMissingConfig("prefix", prefixLoader, PrefixDefaults.data, () => {
                     root.prefixReady = true;
                 });
             }
@@ -884,6 +979,13 @@ Singleton {
         onLoaded: {
             if (!root.systemReady) {
                 validateModule("system", systemLoader, SystemDefaults.data, () => {
+                    root.systemReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.systemReady) {
+                handleMissingConfig("system", systemLoader, SystemDefaults.data, () => {
                     root.systemReady = true;
                 });
             }
@@ -959,6 +1061,13 @@ Singleton {
         onLoaded: {
             if (!root.dockReady) {
                 validateModule("dock", dockLoader, DockDefaults.data, () => {
+                    root.dockReady = true;
+                });
+            }
+        }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.dockReady) {
+                handleMissingConfig("dock", dockLoader, DockDefaults.data, () => {
                     root.dockReady = true;
                 });
             }
@@ -1046,6 +1155,13 @@ Singleton {
                 });
             }
         }
+        onLoadFailed: {
+            if (error.toString().includes("FileNotFound") && !root.aiReady) {
+                handleMissingConfig("ai", aiLoader, AiDefaults.data, () => {
+                    root.aiReady = true;
+                });
+            }
+        }
         onFileChanged: {
             root.pauseAutoSave = true;
             reload();
@@ -1080,6 +1196,21 @@ Singleton {
         }
     }
 
+
+    // Timer to create binds.json if missing after initial load
+    Timer {
+        id: createKeybindsTimer
+        interval: 1000
+        repeat: false
+        onTriggered: {
+            const raw = keybindsLoader.text();
+            if (!raw || raw.trim().length === 0) {
+                console.log("binds.json still missing after delay, creating...");
+                keybindsLoader.writeAdapter();
+                repairKeybindsTimer.start();
+            }
+        }
+    }
     // Repair missing binds
     function repairKeybinds() {
         const raw = keybindsLoader.text();
@@ -1104,34 +1235,42 @@ Singleton {
                 if (nested.widgets) {
                     current.ambxst.launcher = nested.widgets;
                     current.ambxst.launcher.argument = "ambxst run launcher";
+                    current.ambxst.launcher.action = createAction(current.ambxst.launcher);
                 }
                 if (nested.dashboard) {
                     current.ambxst.dashboard = nested.dashboard;
                     current.ambxst.dashboard.argument = "ambxst run dashboard";
+                    current.ambxst.dashboard.action = createAction(current.ambxst.dashboard);
                 }
                 if (nested.assistant) {
                     current.ambxst.assistant = nested.assistant;
                     current.ambxst.assistant.argument = "ambxst run assistant";
+                    current.ambxst.assistant.action = createAction(current.ambxst.assistant);
                 }
                 if (nested.clipboard) {
                     current.ambxst.clipboard = nested.clipboard;
                     current.ambxst.clipboard.argument = "ambxst run clipboard";
+                    current.ambxst.clipboard.action = createAction(current.ambxst.clipboard);
                 }
                 if (nested.emoji) {
                     current.ambxst.emoji = nested.emoji;
                     current.ambxst.emoji.argument = "ambxst run emoji";
+                    current.ambxst.emoji.action = createAction(current.ambxst.emoji);
                 }
                 if (nested.notes) {
                     current.ambxst.notes = nested.notes;
                     current.ambxst.notes.argument = "ambxst run notes";
+                    current.ambxst.notes.action = createAction(current.ambxst.notes);
                 }
                 if (nested.tmux) {
                     current.ambxst.tmux = nested.tmux;
                     current.ambxst.tmux.argument = "ambxst run tmux";
+                    current.ambxst.tmux.action = createAction(current.ambxst.tmux);
                 }
                 if (nested.wallpapers) {
                     current.ambxst.wallpapers = nested.wallpapers;
                     current.ambxst.wallpapers.argument = "ambxst run wallpapers";
+                    current.ambxst.wallpapers.action = createAction(current.ambxst.wallpapers);
                 }
 
                 // Remove the old nested object
@@ -1149,13 +1288,18 @@ Singleton {
             if (!adapter || !adapter.ambxst) return;
 
             // Helper function to create clean bind object
+            function createAction(bindObj) {
+                if (bindObj && bindObj.action) {
+                    return KeybindActions.ensureAction(bindObj.action);
+                }
+                return KeybindActions.actionFromLegacy(bindObj.dispatcher || "", bindObj.argument || "", bindObj.flags || "");
+            }
+
             function createCleanBind(bindObj) {
                 return {
                     "modifiers": bindObj.modifiers || [],
                     "key": bindObj.key || "",
-                    "dispatcher": bindObj.dispatcher || "",
-                    "argument": bindObj.argument || "",
-                    "flags": bindObj.flags || ""
+                    "action": createAction(bindObj)
                 };
             }
 
@@ -1165,6 +1309,12 @@ Singleton {
                 if (!current.ambxst[key] && adapter.ambxst[key]) {
                     console.log("Adding missing ambxst bind:", key);
                     current.ambxst[key] = createCleanBind(adapter.ambxst[key]);
+                    needsUpdate = true;
+                } else if (current.ambxst[key] && !current.ambxst[key].action) {
+                    current.ambxst[key].action = createAction(current.ambxst[key]);
+                    delete current.ambxst[key].dispatcher;
+                    delete current.ambxst[key].argument;
+                    delete current.ambxst[key].flags;
                     needsUpdate = true;
                 }
             }
@@ -1176,42 +1326,26 @@ Singleton {
                     console.log("Adding missing system bind:", key);
                     current.ambxst.system[key] = createCleanBind(adapter.ambxst.system[key]);
                     needsUpdate = true;
+                } else if (current.ambxst.system[key] && !current.ambxst.system[key].action) {
+                    current.ambxst.system[key].action = createAction(current.ambxst.system[key]);
+                    delete current.ambxst.system[key].dispatcher;
+                    delete current.ambxst.system[key].argument;
+                    delete current.ambxst.system[key].flags;
+                    needsUpdate = true;
                 }
             }
 
-            // Migrate compositor wrapper -> direct layouts (Phase C: compositor-agnostic)
             if (current.custom && current.custom.length > 0) {
-                for (let i = 0; i < current.custom.length; i++) {
-                    const bind = current.custom[i];
-                    if (bind.actions) {
-                        for (let a = 0; a < bind.actions.length; a++) {
-                            const action = bind.actions[a];
-                            // Migrate compositor.layouts -> action.layouts
-                            if (action.compositor) {
-                                if (action.compositor.layouts && action.compositor.layouts.length > 0 && !action.layouts) {
-                                    action.layouts = action.compositor.layouts;
-                                }
-                                delete action.compositor;
-                                needsUpdate = true;
-                            }
-                            // Migrate hyprctl dispatch dpms -> axctl monitor set-dpms
-                            if (action.dispatcher === "exec" && action.argument) {
-                                if (action.argument === "hyprctl dispatch dpms off") {
-                                    action.argument = "axctl monitor set-dpms 0";
-                                    needsUpdate = true;
-                                } else if (action.argument === "hyprctl dispatch dpms on") {
-                                    action.argument = "axctl monitor set-dpms 1";
-                                    needsUpdate = true;
-                                }
-                            }
-                        }
-                    }
+                const normalized = KeybindActions.normalizeCustomBinds(current.custom);
+                if (normalized.changed) {
+                    current.custom = normalized.binds;
+                    needsUpdate = true;
                 }
             }
 
             if (needsUpdate) {
                 console.log("Auto-repairing binds.json: adding missing binds");
-                keybindsLoader.setText(JSON.stringify(current, null, 4));
+                keybindsLoader.setText(JSON.stringify(current, null, 2));
             }
         } catch (e) {
             console.warn("Failed to repair binds.json:", e);
@@ -1223,17 +1357,23 @@ Singleton {
         path: keybindsPath
         atomicWrites: true
         watchChanges: true
+        Component.onCompleted: {
+            // Ensure binds.json is created even if onLoaded never fires
+            createKeybindsTimer.start();
+        }
         onLoaded: {
             if (!root.keybindsInitialLoadComplete) {
                 var raw = text();
                 if (!raw || raw.trim().length === 0) {
                     console.log("binds.json not found, creating with default values...");
                     keybindsLoader.writeAdapter();
+                    repairKeybindsTimer.start();
                 } else {
                     // File exists, check if it needs repair
                     repairKeybindsTimer.start();
                 }
                 root.keybindsInitialLoadComplete = true;
+                createKeybindsTimer.start();
             }
         }
         onFileChanged: {
@@ -1257,79 +1397,10 @@ Singleton {
             if (!adapter || !adapter.custom)
                 return;
 
-            let needsUpdate = false;
-            let normalizedBinds = [];
-
-            for (let i = 0; i < adapter.custom.length; i++) {
-                let bind = adapter.custom[i];
-
-                // Check if it's old format (has modifiers/key instead of keys[])
-                if (bind.keys === undefined || bind.actions === undefined) {
-                    needsUpdate = true;
-                    normalizedBinds.push({
-                        "name": bind.name || "",
-                        "keys": [
-                            {
-                                "modifiers": bind.modifiers || [],
-                                "key": bind.key || ""
-                            }
-                        ],
-                        "actions": [
-                            {
-                                "dispatcher": bind.dispatcher || "",
-                                "argument": bind.argument || "",
-                                "flags": bind.flags || "",
-                                "layouts": []
-                            }
-                        ],
-                        "enabled": bind.enabled !== false
-                    });
-                } else {
-                    // Check if actions need layouts field (previously compositor wrapper)
-                    let actionsNeedUpdate = false;
-                    let normalizedActions = [];
-
-                    for (let a = 0; a < bind.actions.length; a++) {
-                        let action = bind.actions[a];
-                        if (action.compositor) {
-                            // Migrate old compositor wrapper to direct layouts
-                            actionsNeedUpdate = true;
-                            normalizedActions.push({
-                                "dispatcher": action.dispatcher || "",
-                                "argument": action.argument || "",
-                                "flags": action.flags || "",
-                                "layouts": (action.compositor.layouts && action.compositor.layouts.length > 0) ? action.compositor.layouts : []
-                            });
-                        } else if (action.layouts === undefined) {
-                            actionsNeedUpdate = true;
-                            normalizedActions.push({
-                                "dispatcher": action.dispatcher || "",
-                                "argument": action.argument || "",
-                                "flags": action.flags || "",
-                                "layouts": []
-                            });
-                        } else {
-                            normalizedActions.push(action);
-                        }
-                    }
-
-                    if (actionsNeedUpdate) {
-                        needsUpdate = true;
-                        normalizedBinds.push({
-                            "name": bind.name || "",
-                            "keys": bind.keys,
-                            "actions": normalizedActions,
-                            "enabled": bind.enabled !== false
-                        });
-                    } else {
-                        normalizedBinds.push(bind);
-                    }
-                }
-            }
-
-            if (needsUpdate) {
-                console.log("Normalizing custom binds: migrating to new keys/actions/layouts format");
-                adapter.custom = normalizedBinds;
+            const normalized = KeybindActions.normalizeCustomBinds(adapter.custom);
+            if (normalized.changed) {
+                console.log("Normalizing custom binds: migrating to action format");
+                adapter.custom = normalized.binds;
             }
         }
 
@@ -1338,149 +1409,119 @@ Singleton {
                 property JsonObject launcher: JsonObject {
                     property list<string> modifiers: ["SUPER"]
                     property string key: "Super_L"
-                    property string dispatcher: "exec"
-                    property string argument: "ambxst run launcher"
-                    property string flags: "r"
+                property var action: ({ "id": "ambxst.launcher", "args": {} })
+            }
+            property JsonObject dashboard: JsonObject {
+                property list<string> modifiers: ["SUPER"]
+                property string key: "D"
+                property var action: ({ "id": "ambxst.dashboard", "args": {} })
+            }
+            property JsonObject assistant: JsonObject {
+                property list<string> modifiers: ["SUPER"]
+                property string key: "A"
+                property var action: ({ "id": "ambxst.assistant", "args": {} })
+            }
+            property JsonObject clipboard: JsonObject {
+                property list<string> modifiers: ["SUPER"]
+                property string key: "V"
+                property var action: ({ "id": "ambxst.clipboard", "args": {} })
+            }
+            property JsonObject emoji: JsonObject {
+                property list<string> modifiers: ["SUPER"]
+                property string key: "PERIOD"
+                property var action: ({ "id": "ambxst.emoji", "args": {} })
+            }
+            property JsonObject notes: JsonObject {
+                property list<string> modifiers: ["SUPER"]
+                property string key: "N"
+                property var action: ({ "id": "ambxst.notes", "args": {} })
+            }
+            property JsonObject tmux: JsonObject {
+                property list<string> modifiers: ["SUPER"]
+                property string key: "T"
+                property var action: ({ "id": "ambxst.tmux", "args": {} })
+            }
+            property JsonObject wallpapers: JsonObject {
+                property list<string> modifiers: ["SUPER"]
+                property string key: "COMMA"
+                property var action: ({ "id": "ambxst.wallpapers", "args": {} })
+            }
+            property JsonObject system: JsonObject {
+                property JsonObject config: JsonObject {
+                    property list<string> modifiers: ["SUPER", "SHIFT"]
+                    property string key: "C"
+                    property var action: ({ "id": "ambxst.config", "args": {} })
                 }
-                property JsonObject dashboard: JsonObject {
+                property JsonObject lockscreen: JsonObject {
                     property list<string> modifiers: ["SUPER"]
-                    property string key: "D"
-                    property string dispatcher: "exec"
-                    property string argument: "ambxst run dashboard"
-                    property string flags: ""
+                    property string key: "L"
+                    property var action: ({ "id": "system.lock", "args": {} })
                 }
-                property JsonObject assistant: JsonObject {
+                property JsonObject overview: JsonObject {
                     property list<string> modifiers: ["SUPER"]
+                    property string key: "TAB"
+                    property var action: ({ "id": "ambxst.overview", "args": {} })
+                }
+                property JsonObject powermenu: JsonObject {
+                    property list<string> modifiers: ["SUPER"]
+                    property string key: "ESCAPE"
+                    property var action: ({ "id": "ambxst.powermenu", "args": {} })
+                }
+                property JsonObject tools: JsonObject {
+                    property list<string> modifiers: ["SUPER"]
+                    property string key: "S"
+                    property var action: ({ "id": "ambxst.tools", "args": {} })
+                }
+                property JsonObject screenshot: JsonObject {
+                    property list<string> modifiers: ["SUPER", "SHIFT"]
+                    property string key: "S"
+                    property var action: ({ "id": "ambxst.screenshot", "args": {} })
+                }
+                property JsonObject screenrecord: JsonObject {
+                    property list<string> modifiers: ["SUPER", "SHIFT"]
+                    property string key: "R"
+                    property var action: ({ "id": "ambxst.screenrecord", "args": {} })
+                }
+                property JsonObject lens: JsonObject {
+                    property list<string> modifiers: ["SUPER", "SHIFT"]
                     property string key: "A"
-                    property string dispatcher: "exec"
-                    property string argument: "ambxst run assistant"
+                    property var action: ({ "id": "ambxst.lens", "args": {} })
                 }
-                property JsonObject clipboard: JsonObject {
-                    property list<string> modifiers: ["SUPER"]
-                    property string key: "V"
-                    property string dispatcher: "exec"
-                    property string argument: "ambxst run clipboard"
+                property JsonObject reload: JsonObject {
+                    property list<string> modifiers: ["SUPER", "ALT"]
+                    property string key: "B"
+                    property var action: ({ "id": "ambxst.reload", "args": {} })
                 }
-                property JsonObject emoji: JsonObject {
-                    property list<string> modifiers: ["SUPER"]
-                    property string key: "PERIOD"
-                    property string dispatcher: "exec"
-                    property string argument: "ambxst run emoji"
+                property JsonObject quit: JsonObject {
+                    property list<string> modifiers: ["SUPER", "CTRL", "ALT"]
+                    property string key: "B"
+                    property var action: ({ "id": "ambxst.quit", "args": {} })
                 }
-                property JsonObject notes: JsonObject {
-                    property list<string> modifiers: ["SUPER"]
-                    property string key: "N"
-                    property string dispatcher: "exec"
-                    property string argument: "ambxst run notes"
-                }
-                property JsonObject tmux: JsonObject {
-                    property list<string> modifiers: ["SUPER"]
-                    property string key: "T"
-                    property string dispatcher: "exec"
-                    property string argument: "ambxst run tmux"
-                }
-                property JsonObject wallpapers: JsonObject {
-                    property list<string> modifiers: ["SUPER"]
-                    property string key: "COMMA"
-                    property string dispatcher: "exec"
-                    property string argument: "ambxst run wallpapers"
-                }
-                property JsonObject system: JsonObject {
-                    property JsonObject config: JsonObject {
-                        property list<string> modifiers: ["SUPER", "SHIFT"]
-                        property string key: "C"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run config"
-                        property string flags: ""
-                    }
-                    property JsonObject lockscreen: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "L"
-                        property string dispatcher: "exec"
-                        property string argument: "loginctl lock-session"
-                        property string flags: ""
-                    }
-                    property JsonObject overview: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "TAB"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run overview"
-                        property string flags: ""
-                    }
-                    property JsonObject powermenu: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "ESCAPE"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run powermenu"
-                        property string flags: ""
-                    }
-                    property JsonObject tools: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "S"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run tools"
-                        property string flags: ""
-                    }
-                    property JsonObject screenshot: JsonObject {
-                        property list<string> modifiers: ["SUPER", "SHIFT"]
-                        property string key: "S"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run screenshot"
-                        property string flags: ""
-                    }
-                    property JsonObject screenrecord: JsonObject {
-                        property list<string> modifiers: ["SUPER", "SHIFT"]
-                        property string key: "R"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run screenrecord"
-                        property string flags: ""
-                    }
-                    property JsonObject lens: JsonObject {
-                        property list<string> modifiers: ["SUPER", "SHIFT"]
-                        property string key: "A"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run lens"
-                        property string flags: ""
-                    }
-                    property JsonObject reload: JsonObject {
-                        property list<string> modifiers: ["SUPER", "ALT"]
-                        property string key: "B"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst reload"
-                        property string flags: ""
-                    }
-                    property JsonObject quit: JsonObject {
-                        property list<string> modifiers: ["SUPER", "CTRL", "ALT"]
-                        property string key: "B"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst quit"
-                        property string flags: ""
-                    }
-                }
+            }
             }
             // Default getters
             readonly property var defaultAmbxstBinds: {
                 "ambxst": {
-                    "launcher": { "modifiers": ["SUPER"], "key": "Super_L", "dispatcher": "exec", "argument": "ambxst run launcher", "flags": "r" },
-                    "dashboard": { "modifiers": ["SUPER"], "key": "D", "dispatcher": "exec", "argument": "ambxst run dashboard", "flags": "" },
-                    "assistant": { "modifiers": ["SUPER"], "key": "A", "dispatcher": "exec", "argument": "ambxst run assistant", "flags": "" },
-                    "clipboard": { "modifiers": ["SUPER"], "key": "V", "dispatcher": "exec", "argument": "ambxst run clipboard", "flags": "" },
-                    "emoji": { "modifiers": ["SUPER"], "key": "PERIOD", "dispatcher": "exec", "argument": "ambxst run emoji", "flags": "" },
-                    "notes": { "modifiers": ["SUPER"], "key": "N", "dispatcher": "exec", "argument": "ambxst run notes", "flags": "" },
-                    "tmux": { "modifiers": ["SUPER"], "key": "T", "dispatcher": "exec", "argument": "ambxst run tmux", "flags": "" },
-                    "wallpapers": { "modifiers": ["SUPER"], "key": "COMMA", "dispatcher": "exec", "argument": "ambxst run wallpapers", "flags": "" }
+                    "launcher": { "modifiers": ["SUPER"], "key": "Super_L", "action": { "id": "ambxst.launcher", "args": {} } },
+                    "dashboard": { "modifiers": ["SUPER"], "key": "D", "action": { "id": "ambxst.dashboard", "args": {} } },
+                    "assistant": { "modifiers": ["SUPER"], "key": "A", "action": { "id": "ambxst.assistant", "args": {} } },
+                    "clipboard": { "modifiers": ["SUPER"], "key": "V", "action": { "id": "ambxst.clipboard", "args": {} } },
+                    "emoji": { "modifiers": ["SUPER"], "key": "PERIOD", "action": { "id": "ambxst.emoji", "args": {} } },
+                    "notes": { "modifiers": ["SUPER"], "key": "N", "action": { "id": "ambxst.notes", "args": {} } },
+                    "tmux": { "modifiers": ["SUPER"], "key": "T", "action": { "id": "ambxst.tmux", "args": {} } },
+                    "wallpapers": { "modifiers": ["SUPER"], "key": "COMMA", "action": { "id": "ambxst.wallpapers", "args": {} } }
                 },
                 "system": {
-                    "config": { "modifiers": ["SUPER", "SHIFT"], "key": "C", "dispatcher": "exec", "argument": "ambxst run config", "flags": "" },
-                    "lockscreen": { "modifiers": ["SUPER"], "key": "L", "dispatcher": "exec", "argument": "loginctl lock-session", "flags": "" },
-                    "overview": { "modifiers": ["SUPER"], "key": "TAB", "dispatcher": "exec", "argument": "ambxst run overview", "flags": "" },
-                    "powermenu": { "modifiers": ["SUPER"], "key": "ESCAPE", "dispatcher": "exec", "argument": "ambxst run powermenu", "flags": "" },
-                    "tools": { "modifiers": ["SUPER"], "key": "S", "dispatcher": "exec", "argument": "ambxst run tools", "flags": "" },
-                    "screenshot": { "modifiers": ["SUPER", "SHIFT"], "key": "S", "dispatcher": "exec", "argument": "ambxst run screenshot", "flags": "" },
-                    "screenrecord": { "modifiers": ["SUPER", "SHIFT"], "key": "R", "dispatcher": "exec", "argument": "ambxst run screenrecord", "flags": "" },
-                    "lens": { "modifiers": ["SUPER", "SHIFT"], "key": "A", "dispatcher": "exec", "argument": "ambxst run lens", "flags": "" },
-                    "reload": { "modifiers": ["SUPER", "ALT"], "key": "B", "dispatcher": "exec", "argument": "ambxst reload", "flags": "" },
-                    "quit": { "modifiers": ["SUPER", "CTRL", "ALT"], "key": "B", "dispatcher": "exec", "argument": "ambxst quit", "flags": "" }
+                    "config": { "modifiers": ["SUPER", "SHIFT"], "key": "C", "action": { "id": "ambxst.config", "args": {} } },
+                    "lockscreen": { "modifiers": ["SUPER"], "key": "L", "action": { "id": "system.lock", "args": {} } },
+                    "overview": { "modifiers": ["SUPER"], "key": "TAB", "action": { "id": "ambxst.overview", "args": {} } },
+                    "powermenu": { "modifiers": ["SUPER"], "key": "ESCAPE", "action": { "id": "ambxst.powermenu", "args": {} } },
+                    "tools": { "modifiers": ["SUPER"], "key": "S", "action": { "id": "ambxst.tools", "args": {} } },
+                    "screenshot": { "modifiers": ["SUPER", "SHIFT"], "key": "S", "action": { "id": "ambxst.screenshot", "args": {} } },
+                    "screenrecord": { "modifiers": ["SUPER", "SHIFT"], "key": "R", "action": { "id": "ambxst.screenrecord", "args": {} } },
+                    "lens": { "modifiers": ["SUPER", "SHIFT"], "key": "A", "action": { "id": "ambxst.lens", "args": {} } },
+                    "reload": { "modifiers": ["SUPER", "ALT"], "key": "B", "action": { "id": "ambxst.reload", "args": {} } },
+                    "quit": { "modifiers": ["SUPER", "CTRL", "ALT"], "key": "B", "action": { "id": "ambxst.quit", "args": {} } }
                 }
             }
 
@@ -1490,9 +1531,7 @@ Singleton {
                     return {
                         "modifiers": bind.modifiers || [],
                         "key": bind.key || "",
-                        "dispatcher": bind.dispatcher || "",
-                        "argument": bind.argument || "",
-                        "flags": bind.flags || ""
+                        "action": KeybindActions.ensureAction(bind.action)
                     };
                 }
                 return null;
@@ -1875,6 +1914,186 @@ Singleton {
                     "actions": [
                         {
                             "dispatcher": "movetoworkspace",
+                            "argument": "10",
+                            "flags": "",
+                            "layouts": []
+                        }
+                    ],
+                    "enabled": true
+                },
+                {
+                    "name": "Move to Workspace 1 (Silent)",
+                    "keys": [
+                        {
+                            "modifiers": ["SUPER", "ALT"],
+                            "key": "1"
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "dispatcher": "movetoworkspacesilent",
+                            "argument": "1",
+                            "flags": "",
+                            "layouts": []
+                        }
+                    ],
+                    "enabled": true
+                },
+                {
+                    "name": "Move to Workspace 2 (Silent)",
+                    "keys": [
+                        {
+                            "modifiers": ["SUPER", "ALT"],
+                            "key": "2"
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "dispatcher": "movetoworkspacesilent",
+                            "argument": "2",
+                            "flags": "",
+                            "layouts": []
+                        }
+                    ],
+                    "enabled": true
+                },
+                {
+                    "name": "Move to Workspace 3 (Silent)",
+                    "keys": [
+                        {
+                            "modifiers": ["SUPER", "ALT"],
+                            "key": "3"
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "dispatcher": "movetoworkspacesilent",
+                            "argument": "3",
+                            "flags": "",
+                            "layouts": []
+                        }
+                    ],
+                    "enabled": true
+                },
+                {
+                    "name": "Move to Workspace 4 (Silent)",
+                    "keys": [
+                        {
+                            "modifiers": ["SUPER", "ALT"],
+                            "key": "4"
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "dispatcher": "movetoworkspacesilent",
+                            "argument": "4",
+                            "flags": "",
+                            "layouts": []
+                        }
+                    ],
+                    "enabled": true
+                },
+                {
+                    "name": "Move to Workspace 5 (Silent)",
+                    "keys": [
+                        {
+                            "modifiers": ["SUPER", "ALT"],
+                            "key": "5"
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "dispatcher": "movetoworkspacesilent",
+                            "argument": "5",
+                            "flags": "",
+                            "layouts": []
+                        }
+                    ],
+                    "enabled": true
+                },
+                {
+                    "name": "Move to Workspace 6 (Silent)",
+                    "keys": [
+                        {
+                            "modifiers": ["SUPER", "ALT"],
+                            "key": "6"
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "dispatcher": "movetoworkspacesilent",
+                            "argument": "6",
+                            "flags": "",
+                            "layouts": []
+                        }
+                    ],
+                    "enabled": true
+                },
+                {
+                    "name": "Move to Workspace 7 (Silent)",
+                    "keys": [
+                        {
+                            "modifiers": ["SUPER", "ALT"],
+                            "key": "7"
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "dispatcher": "movetoworkspacesilent",
+                            "argument": "7",
+                            "flags": "",
+                            "layouts": []
+                        }
+                    ],
+                    "enabled": true
+                },
+                {
+                    "name": "Move to Workspace 8 (Silent)",
+                    "keys": [
+                        {
+                            "modifiers": ["SUPER", "ALT"],
+                            "key": "8"
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "dispatcher": "movetoworkspacesilent",
+                            "argument": "8",
+                            "flags": "",
+                            "layouts": []
+                        }
+                    ],
+                    "enabled": true
+                },
+                {
+                    "name": "Move to Workspace 9 (Silent)",
+                    "keys": [
+                        {
+                            "modifiers": ["SUPER", "ALT"],
+                            "key": "9"
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "dispatcher": "movetoworkspacesilent",
+                            "argument": "9",
+                            "flags": "",
+                            "layouts": []
+                        }
+                    ],
+                    "enabled": true
+                },
+                {
+                    "name": "Move to Workspace 10 (Silent)",
+                    "keys": [
+                        {
+                            "modifiers": ["SUPER", "ALT"],
+                            "key": "0"
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "dispatcher": "movetoworkspacesilent",
                             "argument": "10",
                             "flags": "",
                             "layouts": []
@@ -2960,7 +3179,7 @@ Singleton {
         if (!raw || raw.trim().length === 0) {
             // File is missing or empty — create with defaults
             console.log(name + ".json missing or empty, creating default...");
-            loader.setText(JSON.stringify(defaults, null, 4));
+            loader.setText(JSON.stringify(defaults, null, 2));
             onComplete();
             return;
         }
@@ -2971,16 +3190,43 @@ Singleton {
 
             if (JSON.stringify(current) !== JSON.stringify(validated)) {
                 console.log("Merging and updating " + name + ".json...");
-                loader.setText(JSON.stringify(validated, null, 4));
+                loader.setText(JSON.stringify(validated, null, 2));
             }
             onComplete();
         } catch (e) {
             console.log("Error validating " + name + " config (invalid JSON?): " + e);
             console.log("Overwriting with defaults due to error.");
-            loader.setText(JSON.stringify(defaults, null, 4));
+            loader.setText(JSON.stringify(defaults, null, 2));
             onComplete();
         }
     }
+
+    // Handle missing config files - copy from preset or create with defaults
+    function handleMissingConfig(name, loader, defaults, onComplete) {
+        var presetPath = root.presetDir + "/" + name + ".json";
+        var targetPath = root.configDir + "/" + name + ".json";
+        console.log(name + ".json not found, checking preset: " + presetPath);
+
+        // Create a Process component dynamically to copy the file
+        var copyProcess = Qt.createQmlObject(
+            "import QtQuick 2.0; Process { running: true; command: ['cp', '" + presetPath + "', '" + targetPath + "']; onFinished: { console.log('Copy finished for " + name + "'); } }",
+            root,
+            "copyProcess"
+        );
+
+        // Reload the loader to pick up the copied file
+        loader.reload();
+
+        // If still not ready after reload, use defaults as fallback
+        Qt.callLater(() => {
+            if (!root[name + "Ready"]) {
+                console.log("Using defaults for " + name + ".json");
+                loader.setText(JSON.stringify(defaults, null, 2));
+            }
+            onComplete();
+        });
+    }
+
 
     // Exposed properties
     // Theme configuration

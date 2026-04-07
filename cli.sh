@@ -20,6 +20,23 @@ if [ -n "${QML2_IMPORT_PATH:-}" ] && [ -z "${QML_IMPORT_PATH:-}" ]; then
 	export QML_IMPORT_PATH="$QML2_IMPORT_PATH"
 fi
 
+# Ensure config files exist - copy from preset if missing
+ensure_config_files() {
+	local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/ambxst/config"
+	local preset_dir="${SCRIPT_DIR}/assets/presets/Ambxst Default"
+
+	# Create config directory if it doesn't exist
+	mkdir -p "$config_dir"
+
+	# Copy preset files if they don't exist (cp -n = no-clobber)
+	for file in theme bar workspaces overview notch compositor performance desktop lockscreen dock ai; do
+		cp -n "${preset_dir}/${file}.json" "${config_dir}/${file}.json" 2>/dev/null || true
+	done
+}
+
+# Call it before launching
+ensure_config_files
+
 show_help() {
 	cat <<EOF
 Ambxst CLI - Desktop Environment Control
@@ -39,6 +56,8 @@ Commands:
     help                              Show this help message
     version, -v, --version            Show Ambxst version
     goodbye                           Uninstall Ambxst :(
+    install <target>                    Install compositor config (hyprland)
+    remove <target>                    Remove compositor config (hyprland)
 
 Examples:
     ambxst brightness 75              Set all monitors to 75%
@@ -50,6 +69,70 @@ Examples:
     ambxst brightness -r              Restore saved brightness
 
 EOF
+}
+
+AMBXST_HYPR_SOURCE="source = ~/.local/share/ambxst/hyprland.conf"
+AMBXST_HYPR_BLOCK=$(
+	cat <<'EOF'
+# Ambxst
+source = ~/.local/share/ambxst/hyprland.conf
+
+# OVERRIDES
+# Down here you can write or source anything that you want to override from Ambxst's settings.
+EOF
+)
+
+append_ambxst_hyprland_block() {
+	local conf="$1"
+
+	if [ -f "$conf" ] && grep -qF "$AMBXST_HYPR_SOURCE" "$conf"; then
+		echo "Ambxst Hyprland block already present in $conf"
+		return 0
+	fi
+
+	if [ -f "$conf" ] && [ -s "$conf" ]; then
+		printf "\n%s\n" "$AMBXST_HYPR_BLOCK" >>"$conf"
+	else
+		printf "%s\n" "$AMBXST_HYPR_BLOCK" >"$conf"
+	fi
+
+	echo "Added Ambxst Hyprland block to $conf"
+}
+
+remove_ambxst_hyprland_block() {
+	local conf="$1"
+
+	if [ ! -f "$conf" ]; then
+		echo "$conf does not exist"
+		return 0
+	fi
+
+	awk -v source="$AMBXST_HYPR_SOURCE" '
+		function is_remove(line) {
+			return line == source \
+				|| line == "# Ambxst" \
+				|| line == "# OVERRIDES" \
+				|| line == "# Down here you can write or source anything that you want to override from Ambxst'\''s settings."
+		}
+		{
+			lines[NR] = $0
+		}
+		END {
+			for (i = 1; i <= NR; i++) {
+				line = lines[i]
+				nextline = (i < NR) ? lines[i + 1] : ""
+				if (is_remove(line)) {
+					continue
+				}
+				if (line == "" && (is_remove(lines[i - 1]) || is_remove(nextline))) {
+					continue
+				}
+				print line
+			}
+		}
+	' "$conf" >"${conf}.tmp" && mv "${conf}.tmp" "$conf"
+
+	echo "Removed Ambxst Hyprland block from $conf"
 }
 
 find_ambxst_pid() {
@@ -105,6 +188,10 @@ find_ambxst_pid_cached() {
 }
 
 restart_ambxst() {
+	# Kill axctl processes first (they survive parent death when forked/detached)
+	pkill -f "axctl.*daemon" 2>/dev/null || true
+	pkill -f "axctl subscribe" 2>/dev/null || true
+
 	PID=$(find_ambxst_pid_cached)
 	if [ -n "$PID" ]; then
 		echo "Stopping Ambxst (PID $PID)..."
@@ -171,6 +258,10 @@ reload)
 	restart_ambxst
 	;;
 quit)
+	# Kill axctl processes first
+	pkill -f "axctl.*daemon" 2>/dev/null || true
+	pkill -f "axctl subscribe" 2>/dev/null || true
+
 	PID=$(find_ambxst_pid_cached)
 	if [ -n "$PID" ]; then
 		echo "Stopping Ambxst (PID $PID)..."
@@ -430,6 +521,31 @@ brightness)
 	;;
 version | -v | --version)
 	echo "Ambxst $(cat "${SCRIPT_DIR}/version")"
+	;;
+install)
+	TARGET="${2:-}"
+	if [ "$TARGET" = "hyprland" ]; then
+		HYPR_CONF="$HOME/.config/hypr/hyprland.conf"
+
+		# Create directory if needed
+		mkdir -p "$HOME/.config/hypr"
+
+		append_ambxst_hyprland_block "$HYPR_CONF"
+	else
+		echo "Error: Unknown target '$TARGET'. Supported: hyprland"
+		exit 1
+	fi
+	;;
+remove)
+	TARGET="${2:-}"
+	if [ "$TARGET" = "hyprland" ]; then
+		HYPR_CONF="$HOME/.config/hypr/hyprland.conf"
+
+		remove_ambxst_hyprland_block "$HYPR_CONF"
+	else
+		echo "Error: Unknown target '$TARGET'. Supported: hyprland"
+		exit 1
+	fi
 	;;
 goodbye)
 	echo "Uninstalling Ambxst..."
