@@ -209,7 +209,7 @@ QtObject {
         console.log(`CompositorConfig: Applying ignorealpha: ${ignoreAlphaValue}, explicit: ${Config.compositor.blurExplicitIgnoreAlpha}`);
         batchCommand += ` ; keyword layerrule noanim,quickshell ; keyword layerrule blur,quickshell ; keyword layerrule blurpopups,quickshell ; keyword layerrule ignorealpha ${ignoreAlphaValue},quickshell`;
         console.log("CompositorConfig: Applying compositor batch command:", batchCommand);
-        compositorProcess.command = ["axctl", "config", "apply", batchCommand];
+        compositorProcess.command = ["axctl", "config", "raw-batch", batchCommand];
         compositorProcess.running = true;
     }
 
